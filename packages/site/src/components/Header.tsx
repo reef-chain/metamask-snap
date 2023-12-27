@@ -1,9 +1,10 @@
 import { useContext } from 'react';
 import styled, { useTheme } from 'styled-components';
+
 import { MetamaskActions, MetaMaskContext } from '../hooks';
 import { connectSnap, getThemePreference, getSnap } from '../utils';
 import { HeaderButtons } from './Buttons';
-import { SnapLogo } from './SnapLogo';
+import { ReefLogo } from './ReefLogo';
 import { Toggle } from './Toggle';
 
 const HeaderWrapper = styled.header`
@@ -12,17 +13,7 @@ const HeaderWrapper = styled.header`
   justify-content: space-between;
   align-items: center;
   padding: 2.4rem;
-  border-bottom: 1px solid ${(props) => props.theme.colors.border.default};
-`;
-
-const Title = styled.p`
-  font-size: ${(props) => props.theme.fontSizes.title};
-  font-weight: bold;
-  margin: 0;
-  margin-left: 1.2rem;
-  ${({ theme }) => theme.mediaQueries.small} {
-    display: none;
-  }
+  border-bottom: 1px solid ${(props) => props.theme.colors.border?.default};
 `;
 
 const LogoWrapper = styled.div`
@@ -54,16 +45,15 @@ export const Header = ({
         type: MetamaskActions.SetInstalled,
         payload: installedSnap,
       });
-    } catch (e) {
-      console.error(e);
-      dispatch({ type: MetamaskActions.SetError, payload: e });
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
     }
   };
   return (
     <HeaderWrapper>
       <LogoWrapper>
-        <SnapLogo color={theme.colors.icon.default} size={36} />
-        <Title>template-snap</Title>
+        <ReefLogo color={theme.colors.icon?.default} size={36} />
       </LogoWrapper>
       <RightContainer>
         <Toggle

@@ -1,17 +1,20 @@
+import type { MetaMaskInpageProvider } from '@metamask/providers';
+
 import { defaultSnapOrigin } from '../config';
-import { GetSnapsResponse, Snap } from '../types';
+import type { GetSnapsResponse, Snap } from '../types';
 
 /**
  * Get the installed snaps in MetaMask.
  *
+ * @param provider - The MetaMask inpage provider.
  * @returns The snaps installed in MetaMask.
  */
-export const getSnaps = async (): Promise<GetSnapsResponse> => {
-  return (await window.ethereum.request({
+export const getSnaps = async (
+  provider?: MetaMaskInpageProvider,
+): Promise<GetSnapsResponse> =>
+  (await (provider ?? window.ethereum).request({
     method: 'wallet_getSnaps',
   })) as unknown as GetSnapsResponse;
-};
-
 /**
  * Connect a snap to MetaMask.
  *
@@ -44,21 +47,63 @@ export const getSnap = async (version?: string): Promise<Snap | undefined> => {
       (snap) =>
         snap.id === defaultSnapOrigin && (!version || snap.version === version),
     );
-  } catch (e) {
-    console.log('Failed to obtain installed snap', e);
+  } catch (error) {
+    console.log('Failed to obtain installed snap', error);
     return undefined;
   }
 };
 
-/**
- * Invoke the "hello" method from the example snap.
- */
+export const isLocalSnap = (snapId: string) => snapId.startsWith('local:');
 
-export const sendHello = async () => {
-  await window.ethereum.request({
+export const sendToSnap = async (
+  message: string,
+  request?: any,
+): Promise<any> => {
+  console.log('sendToSnap', message, request);
+  const res = await window.ethereum.request({
     method: 'wallet_invokeSnap',
-    params: { snapId: defaultSnapOrigin, request: { method: 'hello' } },
+    params: {
+      snapId: defaultSnapOrigin,
+      request: {
+        method: message,
+        params: request || {},
+      },
+    },
+  });
+  return res;
+};
+
+export const sendCreateSeed = async () => {
+  return await sendToSnap('createSeed');
+};
+
+export const sendCreateAccountWithSeed = async (seed: string, name: string) => {
+  return await sendToSnap('createAccountWithSeed', {
+    seed: seed,
+    name: name,
   });
 };
 
-export const isLocalSnap = (snapId: string) => snapId.startsWith('local:');
+export const sendGetProviderUrl = async () => {
+  return await sendToSnap('getProviderUrl');
+};
+
+export const sendGetAccount = async (address: string) => {
+  return await sendToSnap('getAccount', {
+    address: address,
+  });
+};
+
+export const sendImportAccountsFromJson = async (
+  json: any,
+  password: string,
+) => {
+  return await sendToSnap('importAccounts', {
+    file: json,
+    password: password,
+  });
+};
+
+export const sendListAccounts = async () => {
+  return await sendToSnap('listAccounts');
+};

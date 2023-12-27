@@ -1,19 +1,31 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import styled from 'styled-components';
-import { MetamaskActions, MetaMaskContext } from '../hooks';
-import {
-  connectSnap,
-  getSnap,
-  sendHello,
-  shouldDisplayReconnectButton,
-} from '../utils';
+
+import { WsProvider } from '@polkadot/api';
+import { Provider, Signer as ReefVMSigner } from '@reef-chain/evm-provider';
+
+import Signer from './Signer';
 import {
   ConnectButton,
   InstallFlaskButton,
   ReconnectButton,
-  SendHelloButton,
   Card,
+  Button,
 } from '../components';
+import { defaultSnapOrigin } from '../config';
+import { MetamaskActions, MetaMaskContext } from '../hooks';
+import {
+  connectSnap,
+  getSnap,
+  isLocalSnap,
+  sendCreateAccountWithSeed,
+  sendCreateSeed,
+  sendGetProviderUrl,
+  sendImportAccountsFromJson,
+  sendListAccounts,
+  shouldDisplayReconnectButton,
+} from '../utils';
+import { flipIt, getFlipperValue } from './flipperContract';
 
 const Container = styled.div`
   display: flex;
@@ -38,7 +50,7 @@ const Heading = styled.h1`
 `;
 
 const Span = styled.span`
-  color: ${(props) => props.theme.colors.primary.default};
+  color: ${(props) => props.theme.colors.primary?.default};
 `;
 
 const Subtitle = styled.p`
@@ -63,9 +75,9 @@ const CardContainer = styled.div`
 `;
 
 const Notice = styled.div`
-  background-color: ${({ theme }) => theme.colors.background.alternative};
-  border: 1px solid ${({ theme }) => theme.colors.border.default};
-  color: ${({ theme }) => theme.colors.text.alternative};
+  background-color: ${({ theme }) => theme.colors.background?.alternative};
+  border: 1px solid ${({ theme }) => theme.colors.border?.default};
+  color: ${({ theme }) => theme.colors.text?.alternative};
   border-radius: ${({ theme }) => theme.radii.default};
   padding: 2.4rem;
   margin-top: 2.4rem;
@@ -82,9 +94,9 @@ const Notice = styled.div`
 `;
 
 const ErrorMessage = styled.div`
-  background-color: ${({ theme }) => theme.colors.error.muted};
-  border: 1px solid ${({ theme }) => theme.colors.error.default};
-  color: ${({ theme }) => theme.colors.error.alternative};
+  background-color: ${({ theme }) => theme.colors.error?.muted};
+  border: 1px solid ${({ theme }) => theme.colors.error?.default};
+  color: ${({ theme }) => theme.colors.error?.alternative};
   border-radius: ${({ theme }) => theme.radii.default};
   padding: 2.4rem;
   margin-bottom: 2.4rem;
@@ -101,6 +113,12 @@ const ErrorMessage = styled.div`
 
 const Index = () => {
   const [state, dispatch] = useContext(MetaMaskContext);
+  const [seed, setSeed] = useState<string>();
+  const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
+
+  const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
+    ? state.isFlask
+    : state.snapsDetected;
 
   const handleConnectClick = async () => {
     try {
@@ -111,36 +129,162 @@ const Index = () => {
         type: MetamaskActions.SetInstalled,
         payload: installedSnap,
       });
-    } catch (e) {
-      console.error(e);
-      dispatch({ type: MetamaskActions.SetError, payload: e });
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
     }
   };
 
-  const handleSendHelloClick = async () => {
+  const handleListAccountClick = async () => {
     try {
-      await sendHello();
+      const accounts = await sendListAccounts();
+      console.log(accounts);
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
+    }
+  };
+
+  const handleCreateSeedClick = async () => {
+    try {
+      const res = (await sendCreateSeed()) as { address: string; seed: string };
+      console.log(res);
+      setSeed(res.seed);
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
+    }
+  };
+
+  const handleCreateAccountClick = async () => {
+    if (!seed) throw new Error('Seed is required');
+    try {
+      const createdAddress = await sendCreateAccountWithSeed(
+        seed,
+        'New Account',
+      );
+      console.log(createdAddress);
+      buildReefSigner(createdAddress as string);
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
+    }
+  };
+
+  const handleImportAccountFromMnemonicClick = async () => {
+    try {
+      const importAddress = await sendCreateAccountWithSeed(
+        'reef reef reef reef reef reef reef reef reef reef reef reef',
+        'Imported Account',
+      );
+      console.log(importAddress);
+      buildReefSigner(importAddress as string);
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
+    }
+  };
+
+  const handleImportAccountsFromJsonClick = async () => {
+    const json = {
+      encoded:
+        'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      encoding: {
+        content: ['batch-pkcs8'],
+        type: ['scrypt', 'xsalsa20-poly1305'],
+        version: '3',
+      },
+      accounts: [
+        {
+          address: '5C4umxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+          meta: {
+            _isSelectedTs: 1687958250560,
+            genesisHash: '',
+            name: 'Reef-1',
+            whenCreated: 1658132263282,
+          },
+        },
+        {
+          address: '5CqNxQxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+          meta: {
+            _isSelectedTs: 1691135429767,
+            genesisHash: '',
+            name: 'Reef-2',
+            whenCreated: 1658132183325,
+          },
+        },
+      ],
+    };
+    const password = 'my_password';
+
+    await sendImportAccountsFromJson(json, password);
+  };
+
+  const buildReefSigner = async (address: string) => {
+    const providerUrl = await sendGetProviderUrl();
+    if (!providerUrl) throw new Error('Provider URL is required');
+
+    const provider = new Provider({
+      provider: new WsProvider(providerUrl as string),
+    });
+    try {
+      await provider.api.isReadyOrError;
     } catch (e) {
-      console.error(e);
-      dispatch({ type: MetamaskActions.SetError, payload: e });
+      console.log('Provider isReadyOrError ERROR=', e);
+      throw e;
+    }
+    const signer = new Signer();
+    const newReefVmSigner = new ReefVMSigner(provider, address, signer);
+    setReefVmSigner(newReefVmSigner);
+  };
+
+  const handleFlipItClick = async () => {
+    if (!reefVmSigner) throw new Error('Reef signer is required');
+    try {
+      var ctrRes = await flipIt(reefVmSigner);
+      console.log('flipped=', ctrRes);
+      getFlipperValue(reefVmSigner);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const handleGetFlipValueClick = async () => {
+    if (!reefVmSigner) throw new Error('Reef signer is required');
+    try {
+      var ctrRes = await getFlipperValue(reefVmSigner);
+      console.log('flipper value=', ctrRes);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const handleSignBytesClick = async () => {
+    if (!reefVmSigner) throw new Error('Reef signer is required');
+    try {
+      const messageSigned = await reefVmSigner.signingKey.signRaw!({
+        address: reefVmSigner._substrateAddress,
+        data: 'hello world',
+        type: 'bytes',
+      });
+      console.log('messaged signed:', messageSigned);
+    } catch (e) {
+      console.log(e);
     }
   };
 
   return (
     <Container>
       <Heading>
-        Welcome to <Span>template-snap</Span>
+        <Span>Reef Chain snap</Span>
       </Heading>
-      <Subtitle>
-        Get started by editing <code>src/index.ts</code>
-      </Subtitle>
       <CardContainer>
         {state.error && (
           <ErrorMessage>
             <b>An error happened:</b> {state.error.message}
           </ErrorMessage>
         )}
-        {!state.isFlask && (
+        {!isMetaMaskReady && (
           <Card
             content={{
               title: 'Install',
@@ -160,11 +304,11 @@ const Index = () => {
               button: (
                 <ConnectButton
                   onClick={handleConnectClick}
-                  disabled={!state.isFlask}
+                  disabled={!isMetaMaskReady}
                 />
               ),
             }}
-            disabled={!state.isFlask}
+            disabled={!isMetaMaskReady}
           />
         )}
         {shouldDisplayReconnectButton(state.installedSnap) && (
@@ -185,31 +329,164 @@ const Index = () => {
         )}
         <Card
           content={{
-            title: 'Send Hello message',
-            description:
-              'Display a custom message within a confirmation screen in MetaMask.',
+            title: 'List accounts',
+            description: 'Get list of accounts.',
             button: (
-              <SendHelloButton
-                onClick={handleSendHelloClick}
+              <Button
+                onClick={() => handleListAccountClick()}
                 disabled={!state.installedSnap}
-              />
+              >
+                List accounts
+              </Button>
             ),
           }}
           disabled={!state.installedSnap}
           fullWidth={
-            state.isFlask &&
+            isMetaMaskReady &&
             Boolean(state.installedSnap) &&
             !shouldDisplayReconnectButton(state.installedSnap)
           }
         />
-        <Notice>
-          <p>
-            Please note that the <b>snap.manifest.json</b> and{' '}
-            <b>package.json</b> must be located in the server root directory and
-            the bundle must be hosted at the location specified by the location
-            field.
-          </p>
-        </Notice>
+        <Card
+          content={{
+            title: 'Create mnemonic',
+            description: 'Generate a mnemonic for a new Reef account.',
+            button: (
+              <Button
+                onClick={handleCreateSeedClick}
+                disabled={!state.installedSnap}
+              >
+                Create mnemonic
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Create account',
+            description: 'Create new Reef account from mnemonic.',
+            button: (
+              <Button
+                onClick={handleCreateAccountClick}
+                disabled={!state.installedSnap}
+              >
+                Create account
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Import from mnemonic',
+            description: 'Import existing account from mnemonic.',
+            button: (
+              <Button
+                onClick={() => handleImportAccountFromMnemonicClick()}
+                disabled={!state.installedSnap}
+              >
+                Import account
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        {/* <Card
+          content={{
+            title: 'Import from JSON',
+            description: 'Import accounts from JSON file.',
+            button: (
+              <Button
+                onClick={() => handleImportAccountsFromJsonClick()}
+                disabled={!state.installedSnap}
+              >
+                Import accounts
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        /> */}
+        <Card
+          content={{
+            title: 'Flip',
+            description: 'Switch flipper value.',
+            button: (
+              <Button
+                onClick={() => handleFlipItClick()}
+                disabled={!state.installedSnap}
+              >
+                Flip it!
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Get flipper value',
+            description: 'Get the value of the flipper.',
+            button: (
+              <Button
+                onClick={() => handleGetFlipValueClick()}
+                disabled={!state.installedSnap}
+              >
+                Get flipper value
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Sign bytes',
+            description: 'Sign raw message.',
+            button: (
+              <Button
+                onClick={() => handleSignBytesClick()}
+                disabled={!state.installedSnap}
+              >
+                Sign bytes
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
       </CardContainer>
     </Container>
   );

@@ -76,5 +76,5 @@ node_modules/
 .yarn/install-state.gz
 .pnp.*
 
-# VSCode workspace
-*.code-workspace
+# development
+notes.md
