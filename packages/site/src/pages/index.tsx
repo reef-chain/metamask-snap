@@ -11,6 +11,7 @@ import {
   ReconnectButton,
   Card,
   Button,
+  TextArea,
 } from '../components';
 import { defaultSnapOrigin } from '../config';
 import { MetamaskActions, MetaMaskContext } from '../hooks';
@@ -20,9 +21,11 @@ import {
   isLocalSnap,
   sendCreateAccountWithSeed,
   sendCreateSeed,
+  sendForgetAccount,
   sendGetProviderUrl,
   sendImportAccountsFromJson,
   sendListAccounts,
+  sendToSnap,
   shouldDisplayReconnectButton,
 } from '../utils';
 import { flipIt, getFlipperValue } from './flipperContract';
@@ -74,25 +77,6 @@ const CardContainer = styled.div`
   margin-top: 1.5rem;
 `;
 
-const Notice = styled.div`
-  background-color: ${({ theme }) => theme.colors.background?.alternative};
-  border: 1px solid ${({ theme }) => theme.colors.border?.default};
-  color: ${({ theme }) => theme.colors.text?.alternative};
-  border-radius: ${({ theme }) => theme.radii.default};
-  padding: 2.4rem;
-  margin-top: 2.4rem;
-  max-width: 60rem;
-  width: 100%;
-
-  & > * {
-    margin: 0;
-  }
-  ${({ theme }) => theme.mediaQueries.small} {
-    margin-top: 1.2rem;
-    padding: 1.6rem;
-  }
-`;
-
 const ErrorMessage = styled.div`
   background-color: ${({ theme }) => theme.colors.error?.muted};
   border: 1px solid ${({ theme }) => theme.colors.error?.default};
@@ -114,6 +98,7 @@ const ErrorMessage = styled.div`
 const Index = () => {
   const [state, dispatch] = useContext(MetaMaskContext);
   const [seed, setSeed] = useState<string>();
+  const [addressDelete, setAddressDelete] = useState<string>();
   const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
 
   const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
@@ -171,7 +156,18 @@ const Index = () => {
     }
   };
 
-  const handleImportAccountFromMnemonicClick = async () => {
+  const handleDeleteAccountClick = async () => {
+    if (!addressDelete) throw new Error('No account to delete');
+    try {
+      await sendForgetAccount(addressDelete);
+      console.log('Account deleted');
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
+    }
+  };
+
+  const handleImportMnemonicClick = async () => {
     try {
       const importAddress = await sendCreateAccountWithSeed(
         'reef reef reef reef reef reef reef reef reef reef reef reef',
@@ -271,6 +267,37 @@ const Index = () => {
     } catch (e) {
       console.log(e);
     }
+  };
+
+  const handleSetStoreClick = async () => {
+    const res = await sendToSnap('setStore', {
+      address: seed || 'test',
+    });
+    console.log(res);
+  };
+
+  const handleGetStoreClick = async () => {
+    const res = await sendToSnap('getStore', {
+      address: seed || 'test',
+    });
+    console.log(res);
+  };
+
+  const handleGetAllStoresClick = async () => {
+    const res = await sendToSnap('getAllStores');
+    console.log(res);
+  };
+
+  const handleRemoveStoreClick = async () => {
+    const res = await sendToSnap('removeStore', {
+      address: seed || 'test',
+    });
+    console.log(res);
+  };
+
+  const handleClearStoresClick = async () => {
+    const res = await sendToSnap('clearAllStores');
+    console.log(res);
   };
 
   return (
@@ -391,12 +418,39 @@ const Index = () => {
           content={{
             title: 'Import from mnemonic',
             description: 'Import existing account from mnemonic.',
+            input: (
+              <TextArea onChange={(event) => setSeed(event.target.value)} />
+            ),
             button: (
               <Button
-                onClick={() => handleImportAccountFromMnemonicClick()}
+                onClick={() => handleCreateAccountClick()}
                 disabled={!state.installedSnap}
               >
                 Import account
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Delete account',
+            input: (
+              <TextArea
+                onChange={(event) => setAddressDelete(event.target.value)}
+              />
+            ),
+            button: (
+              <Button
+                onClick={() => handleDeleteAccountClick()}
+                disabled={!state.installedSnap}
+              >
+                Delete account
               </Button>
             ),
           }}
@@ -477,6 +531,106 @@ const Index = () => {
                 disabled={!state.installedSnap}
               >
                 Sign bytes
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Set store',
+            description: 'Set store value.',
+            button: (
+              <Button
+                onClick={() => handleSetStoreClick()}
+                disabled={!state.installedSnap}
+              >
+                Set store
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Get store',
+            description: 'Get store value.',
+            button: (
+              <Button
+                onClick={() => handleGetStoreClick()}
+                disabled={!state.installedSnap}
+              >
+                Get store
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Get all stores',
+            description: 'Get all stores.',
+            button: (
+              <Button
+                onClick={() => handleGetAllStoresClick()}
+                disabled={!state.installedSnap}
+              >
+                Get all stores
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Remove store',
+            description: 'Remove store value.',
+            button: (
+              <Button
+                onClick={() => handleRemoveStoreClick()}
+                disabled={!state.installedSnap}
+              >
+                Remove store
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Clear stores',
+            description: 'Clear all stores.',
+            button: (
+              <Button
+                onClick={() => handleClearStoresClick()}
+                disabled={!state.installedSnap}
+              >
+                Clear stores
               </Button>
             ),
           }}

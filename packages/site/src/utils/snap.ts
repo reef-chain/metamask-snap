@@ -59,7 +59,7 @@ export const sendToSnap = async (
   message: string,
   request?: any,
 ): Promise<any> => {
-  console.log('sendToSnap', message, request);
+  console.log('=> sendToSnap:', message, request || '');
   const res = await window.ethereum.request({
     method: 'wallet_invokeSnap',
     params: {
@@ -81,6 +81,12 @@ export const sendCreateAccountWithSeed = async (seed: string, name: string) => {
   return await sendToSnap('createAccountWithSeed', {
     seed: seed,
     name: name,
+  });
+};
+
+export const sendForgetAccount = async (address: string) => {
+  return await sendToSnap('forgetAccount', {
+    address: address,
   });
 };
 
