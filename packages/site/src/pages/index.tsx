@@ -167,20 +167,6 @@ const Index = () => {
     }
   };
 
-  const handleImportMnemonicClick = async () => {
-    try {
-      const importAddress = await sendCreateAccountWithSeed(
-        'reef reef reef reef reef reef reef reef reef reef reef reef',
-        'Imported Account',
-      );
-      console.log(importAddress);
-      buildReefSigner(importAddress as string);
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
-  };
-
   const handleImportAccountsFromJsonClick = async () => {
     const json = {
       encoded:

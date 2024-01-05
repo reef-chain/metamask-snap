@@ -4,24 +4,22 @@ import type { HexString } from '@polkadot/util/types';
 import { TypeRegistry } from '@polkadot/types';
 import { SignerPayloadJSON, SignerPayloadRaw } from '@polkadot/types/types';
 import { cryptoWaitReady, mnemonicGenerate } from '@polkadot/util-crypto';
-import keyring from '@polkadot/ui-keyring';
-import { KeyringJson } from '@polkadot/ui-keyring/types';
-import {
-  SingleAddress,
-  SubjectInfo,
-} from '@polkadot/ui-keyring/observable/types';
-import { accounts as accountsObservable } from '@polkadot/ui-keyring/observable/accounts';
+import { Keyring } from './Keyring';
 
-import { Account, RequestBatchRestore, RequestJsonRestore } from './types';
+import {
+  Account,
+  RequestBatchRestore,
+  RequestJsonRestore,
+  KeyringJson,
+} from './types';
 import { AccountsStore } from './stores/Accounts';
 import { getSelectedAccountIndex } from './utils';
 import RequestBytesSign from './RequestBytesSign';
 import RequestExtrinsicSign from './RequestExtrinsicSign';
-import { LocalStoreTest } from './localStoreTest';
 
 // TODO: select provider
 const providerUrl = 'wss://rpc-testnet.reefscan.info/ws';
-const NO_PASSWORD_USED = 'no_password_used';
+const NO_PASSWORD_USED = 'no_password_used'; // TODO
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -49,7 +47,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     case 'createAccountWithSeed':
       const { seed, name } = request.params as Record<string, string>;
       if (!seed || !name) throw new Error('Params not found.');
-      return createAccountWithSeed(seed, name);
+      return await createAccountWithSeed(seed, name);
 
     case 'importAccount':
       const requestJsonRestore = request.params as any as RequestJsonRestore;
@@ -63,7 +61,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
 
     case 'forgetAccount':
       const { address } = request.params as Record<string, string>;
-      return forgetAccount(address!);
+      return await forgetAccount(address!);
 
     case 'listAccounts':
       return accountsList() as unknown as Json;
@@ -73,7 +71,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
         | SignerPayloadJSON
         | SignerPayloadRaw;
       const isBytes = !isJsonPayload(payload);
-      return signatureRequest(payload, isBytes);
+      return signatureRequest(payload, isBytes, origin);
 
     case 'approveSignBytes':
       const payloadRaw = request.params as any as SignerPayloadRaw;
@@ -86,18 +84,18 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     // TODO: remove test methods below
     case 'setStore':
       const { address: address1 } = request.params as Record<string, string>;
-      return setStore(address1!);
+      return await setStore(address1!);
 
     case 'getStore':
       const { address: address2 } = request.params as Record<string, string>;
-      return getStore(address2!) as unknown as Json;
+      return (await getStore(address2!)) as unknown as Json;
 
     case 'getAllStores':
-      return getAllStores();
+      return await getAllStores();
 
     case 'removeStore':
       const { address: address3 } = request.params as Record<string, string>;
-      return removeStore(address3!);
+      return await removeStore(address3!);
 
     case 'clearAllStores':
       return clearStores();
@@ -107,11 +105,13 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
   }
 };
 
+let keyring = new Keyring();
+
 cryptoWaitReady()
   .then((): void => {
     console.log('crypto initialized');
 
-    keyring.loadAll({ store: new AccountsStore(), type: 'sr25519' });
+    keyring.loadAll();
     console.log('KEYRING LOADED ALL=', keyring.getAccounts().length);
     console.log('initialization completed');
   })
@@ -125,34 +125,22 @@ const isJsonPayload = (
   return (value as SignerPayloadJSON).genesisHash !== undefined;
 };
 
-const transformAccounts = (accounts: SubjectInfo): Account[] => {
-  const accs = Object.values(accounts);
+const transformAccounts = (accounts: KeyringJson[]): Account[] => {
+  const filtered = accounts
+    .filter(({ meta: { isHidden } }) => !isHidden)
+    .sort((a, b) => (a.meta.whenCreated || 0) - (b.meta.whenCreated || 0));
 
-  const filtered = accs
-    .filter(
-      ({
-        json: {
-          meta: { isHidden },
-        },
-      }) => !isHidden,
-    )
-    .sort(
-      (a, b) => (a.json.meta.whenCreated || 0) - (b.json.meta.whenCreated || 0),
-    );
-
-  const selIndex = getSelectedAccountIndex(accs.map((sa) => sa.json));
+  const selIndex = getSelectedAccountIndex(accounts);
   let selAccountAddress: string;
 
   if (selIndex != null) {
-    selAccountAddress = accs[selIndex]!.json.address;
+    selAccountAddress = accounts[selIndex]!.address;
   }
 
-  return filtered.map((val: SingleAddress): Account => {
+  return filtered.map((val: KeyringJson): Account => {
     const {
-      json: {
-        address,
-        meta: { name },
-      },
+      address,
+      meta: { name },
     } = val;
 
     return {
@@ -169,18 +157,16 @@ const createSeed = (): {
 } => {
   const seed = mnemonicGenerate(12);
   return {
-    address: keyring.createFromUri(seed, {}, 'sr25519').address,
+    address: keyring.createFromUri(seed, {}).address,
     seed,
   };
 };
 
-const createAccountWithSeed = (seed: string, name: string): string => {
-  const createResult = keyring.addUri(
-    seed,
-    NO_PASSWORD_USED,
-    { name },
-    'sr25519',
-  );
+const createAccountWithSeed = async (
+  seed: string,
+  name: string,
+): Promise<string> => {
+  const createResult = await keyring.addUri(seed, NO_PASSWORD_USED, { name });
   return createResult.pair.address;
 };
 
@@ -202,19 +188,20 @@ const batchRestore = ({ file, password }: RequestBatchRestore): void => {
   }
 };
 
-const forgetAccount = (address: string): boolean => {
-  keyring.forgetAccount(address);
-  return true;
+const forgetAccount = async (address: string) => {
+  await keyring.forgetAccount(address);
+  return 'success';
 };
 
 const accountsList = (): Account[] => {
-  const accounts: SubjectInfo = accountsObservable.subject.getValue();
+  const accounts: KeyringJson[] = keyring.accounts;
   return transformAccounts(accounts);
 };
 
 const signatureRequest = (
   payload: SignerPayloadRaw | SignerPayloadJSON,
   isBytes: boolean,
+  origin: string,
 ) => {
   return snap.request({
     method: 'snap_dialog',
@@ -263,28 +250,31 @@ const signExtrinsic = async (
 };
 
 // TODO: Remove test methods below
-const store = new LocalStoreTest();
+const storeAccounts = new AccountsStore();
 
-const setStore = (address: string) => {
+const setStore = async (address: string) => {
   const account: KeyringJson = {
     address,
     meta: {},
   };
-  return store.set(address, account);
+  await storeAccounts.setAsync(address, account);
+  return 'success';
 };
 
-const getStore = (address: string) => {
-  return store.get(address);
+const getStore = async (address: string) => {
+  return await storeAccounts.getAsync(address);
 };
 
-const getAllStores = () => {
-  return store.all();
+const getAllStores = async () => {
+  return (await storeAccounts.allAsync()) as any as Json[];
 };
 
-const removeStore = (address: string) => {
-  return store.remove(address);
+const removeStore = async (address: string) => {
+  await storeAccounts.removeAsync(address);
+  return 'success';
 };
 
 const clearStores = () => {
-  return store.clear();
+  storeAccounts.clear();
+  return 'success';
 };

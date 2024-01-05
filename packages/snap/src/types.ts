@@ -1,15 +1,38 @@
 // Copyright 2019-2021 @polkadot/extension authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { KeyringPair, KeyringPair$Json } from '@polkadot/keyring/types';
+import type {
+  KeyringPair,
+  KeyringPair$Json,
+  KeyringPair$Meta,
+} from '@polkadot/keyring/types';
 import type {
   SignerPayloadJSON,
   SignerPayloadRaw,
 } from '@polkadot/types/types';
 import type { HexString } from '@polkadot/util/types';
-
 import { TypeRegistry } from '@polkadot/types';
-import { KeyringPairs$Json } from '@polkadot/ui-keyring/types';
+import { EncryptedJson } from '@polkadot/util-crypto/json/types';
+
+export interface KeyringJson {
+  address: string;
+  meta: KeyringPair$Meta;
+}
+
+interface KeyringPairs$Json extends EncryptedJson {
+  accounts: KeyringJson[];
+}
+
+export interface KeyringAddress {
+  readonly address: string;
+  readonly meta: KeyringPair$Meta;
+  readonly publicKey: Uint8Array;
+}
+
+export interface CreateResult {
+  json: KeyringPair$Json;
+  pair: KeyringPair;
+}
 
 export interface RequestSign {
   readonly payload: SignerPayloadJSON | SignerPayloadRaw;
