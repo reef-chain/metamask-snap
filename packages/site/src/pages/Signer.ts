@@ -14,7 +14,7 @@ import { sendToSnap } from '../utils';
 export default class Signer implements SignerInterface {
   public async signPayload(payload: SignerPayloadJSON): Promise<SignerResult> {
     try {
-      const approved = await sendToSnap('signatureRequest', payload);
+      const approved = await sendToSnap('requestSignature', payload);
       if (!approved) return Promise.reject(new Error('_canceled'));
       const result = await sendToSnap('approveSignExtrinsic', payload);
       return { ...result };
@@ -25,7 +25,7 @@ export default class Signer implements SignerInterface {
 
   public async signRaw(payload: SignerPayloadRaw): Promise<SignerResult> {
     try {
-      const approved = await sendToSnap('signatureRequest', payload);
+      const approved = await sendToSnap('requestSignature', payload);
       if (!approved) return Promise.reject(new Error('_canceled'));
       const result = await sendToSnap('approveSignBytes', payload);
       return { ...result };

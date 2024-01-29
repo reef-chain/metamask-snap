@@ -7,6 +7,7 @@ import type {
   KeyringPair$Meta,
 } from '@polkadot/keyring/types';
 import type {
+  Registry,
   SignerPayloadJSON,
   SignerPayloadRaw,
 } from '@polkadot/types/types';
@@ -65,17 +66,26 @@ export declare type ExtDef = Record<string, ExtInfo>;
 export interface MetadataDefBase {
   chain: string;
   genesisHash: string;
-  icon: string;
-  ss58Format: number;
-  chainType?: 'substrate' | 'ethereum';
+  // icon: string;
+  // ss58Format: number;
+  // chainType?: 'substrate' | 'ethereum';
 }
 
 export interface MetadataDef extends MetadataDefBase {
-  color?: string;
+  // color?: string;
   specVersion: number;
-  tokenDecimals: number;
-  tokenSymbol: string;
+  // tokenDecimals: number;
+  // tokenSymbol: string;
   types: Record<string, Record<string, string> | string>;
   metaCalls?: string;
-  userExtensions?: ExtDef;
+  // userExtensions?: ExtDef;
+}
+
+export interface Chain {
+  definition: MetadataDef;
+  genesisHash: string;
+  hasMetadata: boolean;
+  name: string;
+  registry: Registry;
+  specVersion: number;
 }

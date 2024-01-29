@@ -29,6 +29,7 @@ import {
   shouldDisplayReconnectButton,
 } from '../utils';
 import { flipIt, getFlipperValue } from './flipperContract';
+import { getMetadata } from '../utils/metadata';
 
 const Container = styled.div`
   display: flex;
@@ -100,6 +101,7 @@ const Index = () => {
   const [seed, setSeed] = useState<string>();
   const [addressDelete, setAddressDelete] = useState<string>();
   const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
+  const [provider, setProvider] = useState<Provider>();
 
   const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
     ? state.isFlask
@@ -283,6 +285,37 @@ const Index = () => {
 
   const handleClearStoresClick = async () => {
     const res = await sendToSnap('clearAllStores');
+    console.log(res);
+  };
+
+  const handleListMetadataClick = async () => {
+    const res = await sendToSnap('listMetadata');
+    console.log(res);
+  };
+
+  const handleUpdateMetadataClick = async () => {
+    let _provider = provider;
+
+    if (!_provider) {
+      const providerUrl = await sendGetProviderUrl();
+      if (!providerUrl) throw new Error('Provider URL is required');
+
+      _provider = new Provider({
+        provider: new WsProvider(providerUrl as string),
+      });
+
+      try {
+        await _provider.api.isReadyOrError;
+      } catch (e) {
+        console.log('Provider isReadyOrError ERROR=', e);
+        throw e;
+      }
+
+      setProvider(_provider);
+    }
+
+    const metadata = getMetadata(_provider.api, 'testnet'); // TODO select network
+    const res = await sendToSnap('provideMetadata', metadata);
     console.log(res);
   };
 
@@ -617,6 +650,47 @@ const Index = () => {
                 disabled={!state.installedSnap}
               >
                 Clear stores
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'List metadata',
+            description: 'List all metadata definitions stored in snap.',
+            button: (
+              <Button
+                onClick={() => handleListMetadataClick()}
+                disabled={!state.installedSnap}
+              >
+                List metadata
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Update metadata',
+            description:
+              'Update to the latest metadata version on the selected network.',
+            button: (
+              <Button
+                onClick={() => handleUpdateMetadataClick()}
+                disabled={!state.installedSnap}
+              >
+                Update metadata
               </Button>
             ),
           }}
