@@ -6,9 +6,13 @@ import { assert } from '@polkadot/util';
 // import type { AccountJson, RequestAuthorizeTab, RequestSign, ResponseSigning } from '../types';
 import { Chain, MetadataDef } from './types';
 import MetadataStore from './stores/Metadata';
+import NetworkStore from './stores/Network';
 import { Metadata, TypeRegistry } from '@polkadot/types';
 import { base64Decode } from '@polkadot/util-crypto';
+import { NetworkName } from './networks';
 
+const SELECTED_NETWORK_KEY = 'selected-network';
+const DEFAULT_NETWORK = 'testnet'; // TODO switch to mainnet
 const definitions = new Map<string, MetadataDef>();
 const expanded = new Map<string, Chain>();
 
@@ -24,19 +28,31 @@ export function addMetadata(def: MetadataDef): void {
 //   return [...definitions.values()];
 // }
 
-// TODO
 export default class State {
+  readonly #networkStore = new NetworkStore();
+  #network?: NetworkName;
   //   readonly #authUrls: AuthUrls = {};
   readonly #metaStore = new MetadataStore();
-  // Map of providers currently injected in tabs
-  //   readonly #injectedProviders = new Map<chrome.runtime.Port, ProviderInterface>();
-  // Map of all providers exposed by the extension, they are retrievable by key
-  //   readonly #providers: Providers;
 
   constructor() {
+    this.#networkStore.getAsync(SELECTED_NETWORK_KEY).then((network) => {
+      console.log('selected network', network);
+      this.#network = network || DEFAULT_NETWORK;
+    });
+
     this.#metaStore.allAsync().then((defs: MetadataDef[]) => {
+      console.log('metadatas', defs.length);
       defs.forEach((def) => addMetadata(def));
     });
+  }
+
+  public get network(): NetworkName {
+    return this.#network || DEFAULT_NETWORK;
+  }
+
+  public set network(network: NetworkName) {
+    this.#network = network;
+    this.#networkStore.setAsync(SELECTED_NETWORK_KEY, network);
   }
 
   public get knownMetadata(): MetadataDef[] {
@@ -53,9 +69,9 @@ export default class State {
     return this.expandMetadata(def);
   }
 
-  public saveMetadata(meta: MetadataDef): void {
+  public async saveMetadata(meta: MetadataDef): Promise<void> {
     console.log('saveMetadata');
-    this.#metaStore.setAsync(meta.genesisHash, meta);
+    await this.#metaStore.setAsync(meta.genesisHash, meta);
     console.log('saveMetadata done');
     addMetadata(meta);
   }

@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { WsProvider } from '@polkadot/api';
@@ -22,14 +22,16 @@ import {
   sendCreateAccountWithSeed,
   sendCreateSeed,
   sendForgetAccount,
-  sendGetProviderUrl,
+  sendGetNetwork,
   sendImportAccountsFromJson,
   sendListAccounts,
+  sendSetNetwork,
   sendToSnap,
   shouldDisplayReconnectButton,
 } from '../utils';
 import { flipIt, getFlipperValue } from './flipperContract';
 import { getMetadata } from '../utils/metadata';
+import { Network } from './types';
 
 const Container = styled.div`
   display: flex;
@@ -102,12 +104,19 @@ const Index = () => {
   const [addressDelete, setAddressDelete] = useState<string>();
   const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
   const [provider, setProvider] = useState<Provider>();
+  const [network, setNetwork] = useState<Network>();
 
   const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
     ? state.isFlask
     : state.snapsDetected;
 
-  const handleConnectClick = async () => {
+  useEffect(() => {
+    if (state.installedSnap) {
+      getNetwork();
+    }
+  }, [state.installedSnap]);
+
+  const connect = async () => {
     try {
       await connectSnap();
       const installedSnap = await getSnap();
@@ -122,7 +131,7 @@ const Index = () => {
     }
   };
 
-  const handleListAccountClick = async () => {
+  const listAccount = async () => {
     try {
       const accounts = await sendListAccounts();
       console.log(accounts);
@@ -132,7 +141,7 @@ const Index = () => {
     }
   };
 
-  const handleCreateSeedClick = async () => {
+  const createSeed = async () => {
     try {
       const res = (await sendCreateSeed()) as { address: string; seed: string };
       console.log(res);
@@ -143,7 +152,7 @@ const Index = () => {
     }
   };
 
-  const handleCreateAccountClick = async () => {
+  const createAccount = async () => {
     if (!seed) throw new Error('Seed is required');
     try {
       const createdAddress = await sendCreateAccountWithSeed(
@@ -158,7 +167,7 @@ const Index = () => {
     }
   };
 
-  const handleDeleteAccountClick = async () => {
+  const deleteAccount = async () => {
     if (!addressDelete) throw new Error('No account to delete');
     try {
       await sendForgetAccount(addressDelete);
@@ -169,7 +178,7 @@ const Index = () => {
     }
   };
 
-  const handleImportAccountsFromJsonClick = async () => {
+  const importAccountsFromJson = async () => {
     const json = {
       encoded:
         'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
@@ -205,24 +214,13 @@ const Index = () => {
   };
 
   const buildReefSigner = async (address: string) => {
-    const providerUrl = await sendGetProviderUrl();
-    if (!providerUrl) throw new Error('Provider URL is required');
-
-    const provider = new Provider({
-      provider: new WsProvider(providerUrl as string),
-    });
-    try {
-      await provider.api.isReadyOrError;
-    } catch (e) {
-      console.log('Provider isReadyOrError ERROR=', e);
-      throw e;
-    }
+    const _provider = provider || (await updateProvider(network));
     const signer = new Signer();
-    const newReefVmSigner = new ReefVMSigner(provider, address, signer);
+    const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
     setReefVmSigner(newReefVmSigner);
   };
 
-  const handleFlipItClick = async () => {
+  const flipValue = async () => {
     if (!reefVmSigner) throw new Error('Reef signer is required');
     try {
       var ctrRes = await flipIt(reefVmSigner);
@@ -233,7 +231,7 @@ const Index = () => {
     }
   };
 
-  const handleGetFlipValueClick = async () => {
+  const getFlipValue = async () => {
     if (!reefVmSigner) throw new Error('Reef signer is required');
     try {
       var ctrRes = await getFlipperValue(reefVmSigner);
@@ -243,7 +241,7 @@ const Index = () => {
     }
   };
 
-  const handleSignBytesClick = async () => {
+  const signBytes = async () => {
     if (!reefVmSigner) throw new Error('Reef signer is required');
     try {
       const messageSigned = await reefVmSigner.signingKey.signRaw!({
@@ -257,72 +255,94 @@ const Index = () => {
     }
   };
 
-  const handleSetStoreClick = async () => {
+  const setStore = async () => {
     const res = await sendToSnap('setStore', {
       address: seed || 'test',
     });
     console.log(res);
   };
 
-  const handleGetStoreClick = async () => {
+  const getStore = async () => {
     const res = await sendToSnap('getStore', {
       address: seed || 'test',
     });
     console.log(res);
   };
 
-  const handleGetAllStoresClick = async () => {
-    const res = await sendToSnap('getAllStores');
+  const getAllAccounts = async () => {
+    const res = await sendToSnap('getAllAccounts');
     console.log(res);
   };
 
-  const handleRemoveStoreClick = async () => {
+  const getAllMetadata = async () => {
+    const res = await sendToSnap('getAllMetadatas');
+    console.log(res);
+  };
+
+  const removeStore = async () => {
     const res = await sendToSnap('removeStore', {
       address: seed || 'test',
     });
     console.log(res);
   };
 
-  const handleClearStoresClick = async () => {
+  const clearStores = async () => {
     const res = await sendToSnap('clearAllStores');
     console.log(res);
   };
 
-  const handleListMetadataClick = async () => {
+  const listMetadata = async () => {
     const res = await sendToSnap('listMetadata');
     console.log(res);
   };
 
-  const handleUpdateMetadataClick = async () => {
-    let _provider = provider;
-
-    if (!_provider) {
-      const providerUrl = await sendGetProviderUrl();
-      if (!providerUrl) throw new Error('Provider URL is required');
-
-      _provider = new Provider({
-        provider: new WsProvider(providerUrl as string),
-      });
-
-      try {
-        await _provider.api.isReadyOrError;
-      } catch (e) {
-        console.log('Provider isReadyOrError ERROR=', e);
-        throw e;
-      }
-
-      setProvider(_provider);
-    }
-
-    const metadata = getMetadata(_provider.api, 'testnet'); // TODO select network
+  const updateMetadata = async () => {
+    const _provider = provider || (await updateProvider(network));
+    const metadata = getMetadata(_provider.api);
     const res = await sendToSnap('provideMetadata', metadata);
     console.log(res);
+  };
+
+  const getNetwork = async () => {
+    const _network = await sendGetNetwork();
+    setNetwork(_network);
+    return _network;
+  };
+
+  const switchNetwork = async () => {
+    const _network = await sendSetNetwork(
+      network?.name === 'testnet' ? 'mainnet' : 'testnet',
+    );
+    setNetwork(_network);
+  };
+
+  const updateProvider = async (network?: Network) => {
+    let _network = network;
+    if (!_network) {
+      _network = await getNetwork();
+      setNetwork(_network);
+    }
+
+    const _provider = new Provider({
+      provider: new WsProvider(_network.rpcUrl),
+    });
+
+    try {
+      await _provider.api.isReadyOrError;
+    } catch (e) {
+      console.log('Provider isReadyOrError ERROR=', e);
+      throw e;
+    }
+
+    setProvider(_provider);
+    return _provider;
   };
 
   return (
     <Container>
       <Heading>
         <Span>Reef Chain snap</Span>
+        {state.installedSnap && <div>Network: {network?.name || '-'}</div>}
       </Heading>
       <CardContainer>
         {state.error && (
@@ -348,10 +368,7 @@ const Index = () => {
               description:
                 'Get started by connecting to and installing the example snap.',
               button: (
-                <ConnectButton
-                  onClick={handleConnectClick}
-                  disabled={!isMetaMaskReady}
-                />
+                <ConnectButton onClick={connect} disabled={!isMetaMaskReady} />
               ),
             }}
             disabled={!isMetaMaskReady}
@@ -365,7 +382,7 @@ const Index = () => {
                 'While connected to a local running snap this button will always be displayed in order to update the snap if a change is made.',
               button: (
                 <ReconnectButton
-                  onClick={handleConnectClick}
+                  onClick={connect}
                   disabled={!state.installedSnap}
                 />
               ),
@@ -375,11 +392,30 @@ const Index = () => {
         )}
         <Card
           content={{
+            title: 'Init keyring',
+            button: (
+              <Button
+                onClick={() => sendToSnap('initKeyring')}
+                disabled={!state.installedSnap}
+              >
+                Init keyring
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
             title: 'List accounts',
             description: 'Get list of accounts.',
             button: (
               <Button
-                onClick={() => handleListAccountClick()}
+                onClick={() => listAccount()}
                 disabled={!state.installedSnap}
               >
                 List accounts
@@ -398,10 +434,7 @@ const Index = () => {
             title: 'Create mnemonic',
             description: 'Generate a mnemonic for a new Reef account.',
             button: (
-              <Button
-                onClick={handleCreateSeedClick}
-                disabled={!state.installedSnap}
-              >
+              <Button onClick={createSeed} disabled={!state.installedSnap}>
                 Create mnemonic
               </Button>
             ),
@@ -418,10 +451,7 @@ const Index = () => {
             title: 'Create account',
             description: 'Create new Reef account from mnemonic.',
             button: (
-              <Button
-                onClick={handleCreateAccountClick}
-                disabled={!state.installedSnap}
-              >
+              <Button onClick={createAccount} disabled={!state.installedSnap}>
                 Create account
               </Button>
             ),
@@ -442,7 +472,7 @@ const Index = () => {
             ),
             button: (
               <Button
-                onClick={() => handleCreateAccountClick()}
+                onClick={() => createAccount()}
                 disabled={!state.installedSnap}
               >
                 Import account
@@ -466,7 +496,7 @@ const Index = () => {
             ),
             button: (
               <Button
-                onClick={() => handleDeleteAccountClick()}
+                onClick={() => deleteAccount()}
                 disabled={!state.installedSnap}
               >
                 Delete account
@@ -486,7 +516,7 @@ const Index = () => {
             description: 'Import accounts from JSON file.',
             button: (
               <Button
-                onClick={() => handleImportAccountsFromJsonClick()}
+                onClick={() => importAccountsFromJson()}
                 disabled={!state.installedSnap}
               >
                 Import accounts
@@ -506,7 +536,7 @@ const Index = () => {
             description: 'Switch flipper value.',
             button: (
               <Button
-                onClick={() => handleFlipItClick()}
+                onClick={() => flipValue()}
                 disabled={!state.installedSnap}
               >
                 Flip it!
@@ -526,7 +556,7 @@ const Index = () => {
             description: 'Get the value of the flipper.',
             button: (
               <Button
-                onClick={() => handleGetFlipValueClick()}
+                onClick={() => getFlipValue()}
                 disabled={!state.installedSnap}
               >
                 Get flipper value
@@ -546,7 +576,7 @@ const Index = () => {
             description: 'Sign raw message.',
             button: (
               <Button
-                onClick={() => handleSignBytesClick()}
+                onClick={() => signBytes()}
                 disabled={!state.installedSnap}
               >
                 Sign bytes
@@ -566,7 +596,7 @@ const Index = () => {
             description: 'Set store value.',
             button: (
               <Button
-                onClick={() => handleSetStoreClick()}
+                onClick={() => setStore()}
                 disabled={!state.installedSnap}
               >
                 Set store
@@ -586,7 +616,7 @@ const Index = () => {
             description: 'Get store value.',
             button: (
               <Button
-                onClick={() => handleGetStoreClick()}
+                onClick={() => getStore()}
                 disabled={!state.installedSnap}
               >
                 Get store
@@ -602,14 +632,32 @@ const Index = () => {
         />
         <Card
           content={{
-            title: 'Get all stores',
-            description: 'Get all stores.',
+            title: 'Get all accounts from store',
             button: (
               <Button
-                onClick={() => handleGetAllStoresClick()}
+                onClick={() => getAllAccounts()}
                 disabled={!state.installedSnap}
               >
-                Get all stores
+                Get accounts
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Get metadatas from store',
+            button: (
+              <Button
+                onClick={() => getAllMetadata()}
+                disabled={!state.installedSnap}
+              >
+                Get metadatas
               </Button>
             ),
           }}
@@ -626,7 +674,7 @@ const Index = () => {
             description: 'Remove store value.',
             button: (
               <Button
-                onClick={() => handleRemoveStoreClick()}
+                onClick={() => removeStore()}
                 disabled={!state.installedSnap}
               >
                 Remove store
@@ -646,7 +694,7 @@ const Index = () => {
             description: 'Clear all stores.',
             button: (
               <Button
-                onClick={() => handleClearStoresClick()}
+                onClick={() => clearStores()}
                 disabled={!state.installedSnap}
               >
                 Clear stores
@@ -666,7 +714,7 @@ const Index = () => {
             description: 'List all metadata definitions stored in snap.',
             button: (
               <Button
-                onClick={() => handleListMetadataClick()}
+                onClick={() => listMetadata()}
                 disabled={!state.installedSnap}
               >
                 List metadata
@@ -687,10 +735,48 @@ const Index = () => {
               'Update to the latest metadata version on the selected network.',
             button: (
               <Button
-                onClick={() => handleUpdateMetadataClick()}
+                onClick={() => updateMetadata()}
                 disabled={!state.installedSnap}
               >
                 Update metadata
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Get network',
+            button: (
+              <Button
+                onClick={() => getNetwork()}
+                disabled={!state.installedSnap}
+              >
+                Get network
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Switch network',
+            button: (
+              <Button
+                onClick={() => switchNetwork()}
+                disabled={!state.installedSnap}
+              >
+                Switch network
               </Button>
             ),
           }}

@@ -66,19 +66,12 @@ export declare type ExtDef = Record<string, ExtInfo>;
 export interface MetadataDefBase {
   chain: string;
   genesisHash: string;
-  // icon: string;
-  // ss58Format: number;
-  // chainType?: 'substrate' | 'ethereum';
 }
 
 export interface MetadataDef extends MetadataDefBase {
-  // color?: string;
   specVersion: number;
-  // tokenDecimals: number;
-  // tokenSymbol: string;
   types: Record<string, Record<string, string> | string>;
   metaCalls?: string;
-  // userExtensions?: ExtDef;
 }
 
 export interface Chain {

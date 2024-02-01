@@ -167,7 +167,7 @@ export class Keyring {
   private initKeyring(): void {
     const keyring = new BaseKeyring();
     this.#keyring = keyring;
-    this.addAccountPairs();
+    // this.addAccountPairs();
   }
 
   private addTimestamp(pair: KeyringPair): void {
@@ -183,13 +183,13 @@ export class Keyring {
     return this.keyring.encodeAddress(key, ss58Format);
   };
 
-  private async addAccountPairs(): Promise<void> {
-    const data: Record<string, KeyringJson> = {};
-    this.keyring.getPairs().forEach(({ address, meta }: KeyringPair): void => {
-      data[this.toHex(address)] = { address, meta };
-    });
-    await this._store.setBulkAsync(data);
-  }
+  // private async addAccountPairs(): Promise<void> {
+  //   const data: Record<string, KeyringJson> = {};
+  //   this.keyring.getPairs().forEach(({ address, meta }: KeyringPair): void => {
+  //     data[this.toHex(address)] = { address, meta };
+  //   });
+  //   await this._store.setBulkAsync(data);
+  // }
 
   // private rewriteKey(json: KeyringJson, key: string, hexAddr: string): void {
   //   this._store.remove(key);

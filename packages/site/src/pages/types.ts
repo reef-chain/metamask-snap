@@ -6,3 +6,8 @@ export interface SendRequest {
     subscriber: (data: any) => void,
   ): Promise<any>;
 }
+
+export interface Network {
+  name: string;
+  rpcUrl: string;
+}

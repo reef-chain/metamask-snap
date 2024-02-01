@@ -32,11 +32,35 @@ import RequestExtrinsicSign from './RequestExtrinsicSign';
 import { reefLogo } from './icon';
 import State from './State';
 import { Call } from '@polkadot/types/interfaces';
+import { AVAILABLE_NETWORKS, NetworkName } from './networks';
+import MetadataStore from './stores/Metadata';
 
-// TODO: select provider
-const providerUrl = 'wss://rpc-testnet.reefscan.info/ws';
 const NO_PASSWORD_USED = 'no_password_used'; // TODO
-const state = new State();
+let state = new State();
+
+let keyringInitialized = false;
+let keyring = new Keyring();
+const initKeyring = async () => {
+  try {
+    await cryptoWaitReady();
+    console.log('crypto initialized');
+    await keyring.loadAll();
+    console.log('KEYRING LOADED ALL=', keyring.getAccounts().length);
+    state = new State();
+    keyringInitialized = true;
+    console.log('initialization completed');
+  } catch (error) {
+    console.error('crypto initialization failed', error);
+  }
+};
+
+// TODO: Check why this does not work when executed on file loaded
+//       For now, init keyring on first request
+// (async () => {
+//   await initKeyring();
+// })().catch((error) => {
+//   console.error('crypto initialization error', error);
+// });
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -53,10 +77,26 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
   request,
 }) => {
   console.log('=> onRpcRequest:', request.method);
+  if (!keyringInitialized) await initKeyring();
 
   switch (request.method) {
-    case 'getProviderUrl':
-      return providerUrl;
+    // Network
+    case 'getNetwork':
+      return {
+        name: state.network,
+        rpcUrl: AVAILABLE_NETWORKS[state.network].rpcUrl,
+      };
+
+    case 'selectNetwork':
+      const { network } = request.params as Record<string, string>;
+      if (!network || !(network in AVAILABLE_NETWORKS)) {
+        throw new Error('Invalid network');
+      }
+      state.network = network as NetworkName;
+      return {
+        name: state.network,
+        rpcUrl: AVAILABLE_NETWORKS[state.network].rpcUrl,
+      };
 
     // Accounts
     case 'createSeed':
@@ -110,7 +150,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
 
     case 'provideMetadata':
       const metadataReq = request.params as any as MetadataDef;
-      return provideMetadata(metadataReq, origin);
+      return await provideMetadata(metadataReq, origin);
 
     // TODO: remove test methods below *************************************************************
     case 'setStore':
@@ -121,8 +161,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
       const { address: address2 } = request.params as Record<string, string>;
       return (await getStore(address2!)) as unknown as Json;
 
-    case 'getAllStores':
-      return await getAllStores();
+    case 'getAllAccounts':
+      return await getAllAccounts();
+
+    case 'getAllMetadatas':
+      return await getAllMetadatas();
 
     case 'removeStore':
       const { address: address3 } = request.params as Record<string, string>;
@@ -131,24 +174,14 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     case 'clearAllStores':
       return clearStores();
 
+    case 'initKeyring':
+      await initKeyring();
+      return true;
+
     default:
       throw new Error('Method not found.');
   }
 };
-
-let keyring = new Keyring();
-
-cryptoWaitReady()
-  .then((): void => {
-    console.log('crypto initialized');
-
-    keyring.loadAll();
-    console.log('KEYRING LOADED ALL=', keyring.getAccounts().length);
-    console.log('initialization completed');
-  })
-  .catch((error): void => {
-    console.error('initialization failed', error);
-  });
 
 const isJsonPayload = (
   value: SignerPayloadJSON | SignerPayloadRaw,
@@ -248,9 +281,10 @@ const renderMethod = (data: string, genesisHash: string) => {
 
   const res = [];
   const methodName =
-    `${method.section}.${method.method}` + method.meta
+    `${method.section}.${method.method}` +
+    (method.meta
       ? `(${method.meta.args.map(({ name }) => name).join(', ')})`
-      : '';
+      : '');
   const methodArgs = JSON.stringify(args, null, 2);
   res.push(text(`**Method**: ${methodName}`));
   res.push(text(`**Args**: ${methodArgs}`));
@@ -370,12 +404,13 @@ const provideMetadata = async (metadata: MetadataDef, origin: string) => {
 
   if (!approved) return 'false';
 
-  state.saveMetadata(metadata);
+  await state.saveMetadata(metadata);
   return 'true';
 };
 
 // TODO: Remove test methods below
 const storeAccounts = new AccountsStore();
+const storeMetadata = new MetadataStore();
 
 const setStore = async (address: string) => {
   const account: KeyringJson = {
@@ -390,8 +425,12 @@ const getStore = async (address: string) => {
   return await storeAccounts.getAsync(address);
 };
 
-const getAllStores = async () => {
+const getAllAccounts = async () => {
   return (await storeAccounts.allAsync()) as any as Json[];
+};
+
+const getAllMetadatas = async () => {
+  return (await storeMetadata.allAsync()) as any as Json[];
 };
 
 const removeStore = async (address: string) => {
