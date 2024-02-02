@@ -162,6 +162,24 @@ export class Keyring {
     return json;
   }
 
+  public async saveAccountMeta(
+    pair: KeyringPair,
+    meta: KeyringPair$Meta,
+  ): Promise<boolean> {
+    const address = pair.address;
+
+    const json = await this._store.getAsync(this.toHex(address));
+    if (!json) return false;
+
+    pair.setMeta(meta);
+    json.meta = pair.meta;
+
+    await this._store.setAsync(this.toHex(pair.address), json);
+    this.#accounts[pair.address] = json;
+
+    return true;
+  }
+
   // *************** Private methods ***************
 
   private initKeyring(): void {

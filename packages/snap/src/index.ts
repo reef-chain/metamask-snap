@@ -32,7 +32,7 @@ import RequestExtrinsicSign from './RequestExtrinsicSign';
 import { reefLogo } from './icon';
 import State from './State';
 import { Call } from '@polkadot/types/interfaces';
-import { AVAILABLE_NETWORKS, NetworkName } from './networks';
+import { availableNetworks, NetworkName } from './networks';
 import MetadataStore from './stores/Metadata';
 
 const NO_PASSWORD_USED = 'no_password_used'; // TODO
@@ -84,18 +84,18 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     case 'getNetwork':
       return {
         name: state.network,
-        rpcUrl: AVAILABLE_NETWORKS[state.network].rpcUrl,
+        rpcUrl: availableNetworks[state.network].rpcUrl,
       };
 
     case 'selectNetwork':
       const { network } = request.params as Record<string, string>;
-      if (!network || !(network in AVAILABLE_NETWORKS)) {
+      if (!network || !(network in availableNetworks)) {
         throw new Error('Invalid network');
       }
       state.network = network as NetworkName;
       return {
         name: state.network,
-        rpcUrl: AVAILABLE_NETWORKS[state.network].rpcUrl,
+        rpcUrl: availableNetworks[state.network].rpcUrl,
       };
 
     // Accounts
@@ -110,19 +110,23 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     case 'importAccount':
       const requestJsonRestore = request.params as any as RequestJsonRestore;
       jsonRestore(requestJsonRestore);
-      return 'true';
+      return true;
 
     case 'importAccounts':
       const requestBatchRestore = request.params as any as RequestBatchRestore;
       batchRestore(requestBatchRestore);
-      return 'true';
+      return true;
 
     case 'forgetAccount':
-      const { address } = request.params as Record<string, string>;
-      return await forgetAccount(address!);
+      const { addressForget } = request.params as Record<string, string>;
+      return await forgetAccount(addressForget!);
 
     case 'listAccounts':
       return accountsList() as unknown as Json;
+
+    case 'selectAccount':
+      const { addressSelect } = request.params as Record<string, string>;
+      return await selectAccount(addressSelect!);
 
     // Signing
     case 'requestSignature':
@@ -254,12 +258,23 @@ const batchRestore = ({ file, password }: RequestBatchRestore): void => {
 
 const forgetAccount = async (address: string) => {
   await keyring.forgetAccount(address);
-  return 'success';
+  return true;
 };
 
 const accountsList = (): Account[] => {
   const accounts: KeyringJson[] = keyring.accounts;
   return transformAccounts(accounts);
+};
+
+const selectAccount = async (address: string) => {
+  const newSelectPair = keyring.getPair(address);
+  if (!newSelectPair) return false;
+
+  const res = await keyring.saveAccountMeta(newSelectPair, {
+    ...newSelectPair.meta,
+    _isSelectedTs: new Date().getTime(),
+  });
+  return res;
 };
 
 const renderMethod = (data: string, genesisHash: string) => {
@@ -312,9 +327,11 @@ const signatureRequest = (
   } else {
     const jsonPayload = payload as SignerPayloadJSON;
 
-    const metadata = state.findMetadata(jsonPayload.genesisHash);
-    if (metadata) {
-      payloadText.push(text(`**Chain**: ${metadata.chain}`));
+    const network = Object.values(availableNetworks).find(
+      (network) => network.genesisHash === jsonPayload.genesisHash,
+    );
+    if (network) {
+      payloadText.push(text(`**Network**: ${network.displayName}`));
     } else {
       payloadText.push(text(`**Genesis**: ${jsonPayload.genesisHash}`));
     }
@@ -383,6 +400,14 @@ const provideMetadata = async (metadata: MetadataDef, origin: string) => {
   );
   const currentVersion = currentMetadata?.specVersion || '<unknown>';
 
+  let chainText = text(`**Chain**: ${metadata.chain}`);
+  const network = Object.values(availableNetworks).find(
+    (network) => network.genesisHash === metadata.genesisHash,
+  );
+  if (network) {
+    chainText = text(`**Network**: ${network.displayName}`);
+  }
+
   const approved = await snap.request({
     method: 'snap_dialog',
     params: {
@@ -392,7 +417,7 @@ const provideMetadata = async (metadata: MetadataDef, origin: string) => {
         heading('Add metadata'),
         divider(),
         text(`**From**: ${origin}`),
-        text(`**Chain**: ${metadata.chain}`),
+        chainText,
         text(`**Upgrade**: ${currentVersion} -> ${metadata.specVersion}`),
         divider(),
         text(
@@ -402,10 +427,10 @@ const provideMetadata = async (metadata: MetadataDef, origin: string) => {
     },
   });
 
-  if (!approved) return 'false';
+  if (!approved) return false;
 
   await state.saveMetadata(metadata);
-  return 'true';
+  return true;
 };
 
 // TODO: Remove test methods below
@@ -418,7 +443,7 @@ const setStore = async (address: string) => {
     meta: {},
   };
   await storeAccounts.setAsync(address, account);
-  return 'success';
+  return true;
 };
 
 const getStore = async (address: string) => {
@@ -435,10 +460,10 @@ const getAllMetadatas = async () => {
 
 const removeStore = async (address: string) => {
   await storeAccounts.removeAsync(address);
-  return 'success';
+  return true;
 };
 
 const clearStores = () => {
   storeAccounts.clear();
-  return 'success';
+  return true;
 };

@@ -59,6 +59,7 @@ export const Header = ({
         <Toggle
           onToggle={handleToggleClick}
           defaultChecked={getThemePreference()}
+          themeIcons={true}
         />
         <HeaderButtons state={state} onConnectClick={handleConnectClick} />
       </RightContainer>

@@ -12,6 +12,7 @@ import {
   Card,
   Button,
   TextArea,
+  Toggle,
 } from '../components';
 import { defaultSnapOrigin } from '../config';
 import { MetamaskActions, MetaMaskContext } from '../hooks';
@@ -31,7 +32,7 @@ import {
 } from '../utils';
 import { flipIt, getFlipperValue } from './flipperContract';
 import { getMetadata } from '../utils/metadata';
-import { Network } from './types';
+import { Account, Network } from './types';
 
 const Container = styled.div`
   display: flex;
@@ -59,7 +60,9 @@ const Span = styled.span`
   color: ${(props) => props.theme.colors.primary?.default};
 `;
 
-const Subtitle = styled.p`
+const Subtitle = styled.div`
+  display: flex;
+  align-items: center;
   font-size: ${({ theme }) => theme.fontSizes.large};
   font-weight: 500;
   margin-top: 0;
@@ -98,6 +101,17 @@ const ErrorMessage = styled.div`
   }
 `;
 
+const SelectInput = styled.select`
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+`;
+
+const Option = styled.option`
+  padding: 0.5rem;
+`;
+
 const Index = () => {
   const [state, dispatch] = useContext(MetaMaskContext);
   const [seed, setSeed] = useState<string>();
@@ -105,6 +119,7 @@ const Index = () => {
   const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
   const [provider, setProvider] = useState<Provider>();
   const [network, setNetwork] = useState<Network>();
+  const [accounts, setAccounts] = useState<Account[]>([]);
 
   const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
     ? state.isFlask
@@ -113,8 +128,14 @@ const Index = () => {
   useEffect(() => {
     if (state.installedSnap) {
       getNetwork();
+      getAccounts();
     }
   }, [state.installedSnap]);
+
+  useEffect(() => {
+    console.log('network changed:', network);
+    updateProvider(network);
+  }, [network]);
 
   const connect = async () => {
     try {
@@ -131,10 +152,14 @@ const Index = () => {
     }
   };
 
-  const listAccount = async () => {
+  const getAccounts = async () => {
     try {
-      const accounts = await sendListAccounts();
-      console.log(accounts);
+      const _accounts = await sendListAccounts();
+      console.log(_accounts);
+      const _selectedAccount = _accounts.find((acc: Account) => acc.isSelected);
+      setAccounts(_accounts);
+      // setSelectedAccount(_selectedAccount);
+      buildReefSigner(_selectedAccount?.address);
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
@@ -160,7 +185,7 @@ const Index = () => {
         'New Account',
       );
       console.log(createdAddress);
-      buildReefSigner(createdAddress as string);
+      getAccounts();
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
@@ -172,6 +197,7 @@ const Index = () => {
     try {
       await sendForgetAccount(addressDelete);
       console.log('Account deleted');
+      getAccounts();
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
@@ -211,6 +237,7 @@ const Index = () => {
     const password = 'my_password';
 
     await sendImportAccountsFromJson(json, password);
+    getAccounts();
   };
 
   const buildReefSigner = async (address: string) => {
@@ -218,6 +245,7 @@ const Index = () => {
     const signer = new Signer();
     const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
     setReefVmSigner(newReefVmSigner);
+    console.log('Reef signer built:', newReefVmSigner);
   };
 
   const flipValue = async () => {
@@ -338,12 +366,42 @@ const Index = () => {
     return _provider;
   };
 
+  const handleSelectAccount = async (event: any) => {
+    const res = await sendToSnap('selectAccount', {
+      addressSelect: event.target.value,
+    });
+    console.log(res);
+    getAccounts();
+  };
+
   return (
     <Container>
       <Heading>
         <Span>Reef Chain snap</Span>
-        {state.installedSnap && <div>Network: {network?.name || '-'}</div>}
       </Heading>
+      <Subtitle>
+        {state.installedSnap && <div>Network: {network?.name || '-'}</div>}
+        {network?.name && (
+          <Toggle
+            onToggle={switchNetwork}
+            defaultChecked={network?.name === 'mainnet'}
+          />
+        )}
+      </Subtitle>
+      {accounts.length > 0 && (
+        <SelectInput
+          value={reefVmSigner?._substrateAddress}
+          onChange={handleSelectAccount}
+        >
+          <Option value="">Select account...</Option>
+          {accounts.map((account, index) => (
+            <Option key={index} value={account.address}>
+              {account.address} - {account.name}
+              {account.isSelected ? ' ✅' : ''}
+            </Option>
+          ))}
+        </SelectInput>
+      )}
       <CardContainer>
         {state.error && (
           <ErrorMessage>
@@ -415,7 +473,7 @@ const Index = () => {
             description: 'Get list of accounts.',
             button: (
               <Button
-                onClick={() => listAccount()}
+                onClick={() => getAccounts()}
                 disabled={!state.installedSnap}
               >
                 List accounts
@@ -739,44 +797,6 @@ const Index = () => {
                 disabled={!state.installedSnap}
               >
                 Update metadata
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Get network',
-            button: (
-              <Button
-                onClick={() => getNetwork()}
-                disabled={!state.installedSnap}
-              >
-                Get network
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Switch network',
-            button: (
-              <Button
-                onClick={() => switchNetwork()}
-                disabled={!state.installedSnap}
-              >
-                Switch network
               </Button>
             ),
           }}

@@ -11,3 +11,9 @@ export interface Network {
   name: string;
   rpcUrl: string;
 }
+
+export interface Account {
+  address: string;
+  name: string;
+  isSelected: boolean;
+}

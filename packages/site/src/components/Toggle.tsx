@@ -19,9 +19,9 @@ const ToggleWrapper = styled.div`
   user-select: none;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   -webkit-tap-highlight-color: transparent;
-  margin-right: 2.4rem;
+  margin: 0 2.4rem;
   ${({ theme }) => theme.mediaQueries.small} {
-    margin-right: 2.4rem;
+    margin: 0 2.4rem;
   }
 `;
 
@@ -92,9 +92,11 @@ const ToggleCircle = styled.div<CheckedProps>`
 export const Toggle = ({
   onToggle,
   defaultChecked = false,
+  themeIcons = false,
 }: {
   onToggle(): void;
   defaultChecked?: boolean;
+  themeIcons?: boolean;
 }) => {
   const [checked, setChecked] = useState(defaultChecked);
 
@@ -107,10 +109,10 @@ export const Toggle = ({
     <ToggleWrapper onClick={handleChange}>
       <ToggleContainer>
         <CheckedContainer checked={checked}>
-          <span>🌞</span>
+          {themeIcons && <span>🌞</span>}
         </CheckedContainer>
         <UncheckedContainer checked={checked}>
-          <span>🌜</span>
+          {themeIcons && <span>🌜</span>}
         </UncheckedContainer>
       </ToggleContainer>
       <ToggleCircle checked={checked} />
