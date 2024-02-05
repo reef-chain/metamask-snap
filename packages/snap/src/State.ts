@@ -1,9 +1,6 @@
 // Copyright 2019-2021 @polkadot/extension-bg authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { assert } from '@polkadot/util';
-
-// import type { AccountJson, RequestAuthorizeTab, RequestSign, ResponseSigning } from '../types';
 import { Chain, MetadataDef } from './types';
 import MetadataStore from './stores/Metadata';
 import NetworkStore from './stores/Network';
@@ -20,28 +17,17 @@ export function addMetadata(def: MetadataDef): void {
   definitions.set(def.genesisHash, def);
 }
 
-// export function findMetadata(genesisHash: string): MetadataDef | undefined {
-//   return definitions.get(genesisHash);
-// }
-
-// export function knownMetadata(): MetadataDef[] {
-//   return [...definitions.values()];
-// }
-
 export default class State {
   readonly #networkStore = new NetworkStore();
   #network?: NetworkName;
-  //   readonly #authUrls: AuthUrls = {};
   readonly #metaStore = new MetadataStore();
 
   constructor() {
-    this.#networkStore.getAsync(SELECTED_NETWORK_KEY).then((network) => {
-      console.log('selected network', network);
+    this.#networkStore.get(SELECTED_NETWORK_KEY).then((network) => {
       this.#network = network || DEFAULT_NETWORK;
     });
 
-    this.#metaStore.allAsync().then((defs: MetadataDef[]) => {
-      console.log('metadatas', defs.length);
+    this.#metaStore.all().then((defs: MetadataDef[]) => {
       defs.forEach((def) => addMetadata(def));
     });
   }
@@ -52,7 +38,7 @@ export default class State {
 
   public set network(network: NetworkName) {
     this.#network = network;
-    this.#networkStore.setAsync(SELECTED_NETWORK_KEY, network);
+    this.#networkStore.set(SELECTED_NETWORK_KEY, network);
   }
 
   public get knownMetadata(): MetadataDef[] {
@@ -70,9 +56,7 @@ export default class State {
   }
 
   public async saveMetadata(meta: MetadataDef): Promise<void> {
-    console.log('saveMetadata');
-    await this.#metaStore.setAsync(meta.genesisHash, meta);
-    console.log('saveMetadata done');
+    await this.#metaStore.set(meta.genesisHash, meta);
     addMetadata(meta);
   }
 

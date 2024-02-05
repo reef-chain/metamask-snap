@@ -5,4 +5,4 @@ export * from './Header';
 export * from './MetaMask';
 export * from './PoweredBy';
 export * from './Toggle';
-export * from './Inputs';
+export * from './Common';

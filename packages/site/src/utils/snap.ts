@@ -2,7 +2,6 @@ import type { MetaMaskInpageProvider } from '@metamask/providers';
 
 import { defaultSnapOrigin } from '../config';
 import type { GetSnapsResponse, Snap } from '../types';
-import { Network } from 'src/pages/types';
 
 /**
  * Get the installed snaps in MetaMask.
@@ -72,51 +71,4 @@ export const sendToSnap = async (
     },
   });
   return res;
-};
-
-export const sendCreateSeed = async () => {
-  return await sendToSnap('createSeed');
-};
-
-export const sendCreateAccountWithSeed = async (seed: string, name: string) => {
-  return await sendToSnap('createAccountWithSeed', {
-    seed: seed,
-    name: name,
-  });
-};
-
-export const sendForgetAccount = async (address: string) => {
-  return await sendToSnap('forgetAccount', {
-    address: address,
-  });
-};
-
-export const sendGetNetwork = async (): Promise<Network> => {
-  return await sendToSnap('getNetwork');
-};
-
-export const sendSetNetwork = async (network: string) => {
-  return await sendToSnap('selectNetwork', {
-    network: network,
-  });
-};
-
-export const sendGetAccount = async (address: string) => {
-  return await sendToSnap('getAccount', {
-    address: address,
-  });
-};
-
-export const sendImportAccountsFromJson = async (
-  json: any,
-  password: string,
-) => {
-  return await sendToSnap('importAccounts', {
-    file: json,
-    password: password,
-  });
-};
-
-export const sendListAccounts = async () => {
-  return await sendToSnap('listAccounts');
 };

@@ -25,7 +25,6 @@ export class Keyring {
 
   constructor() {
     this._store = new AccountsStore();
-    // this._store.clear();
   }
 
   public get accounts(): KeyringJson[] {
@@ -43,7 +42,7 @@ export class Keyring {
   public async loadAll(): Promise<void> {
     this.initKeyring();
 
-    const keyringJsons: KeyringJson[] = await this._store.allAsync();
+    const keyringJsons: KeyringJson[] = await this._store.all();
     keyringJsons.forEach((keyringJson: KeyringJson) => {
       this.loadAccount(keyringJson);
     });
@@ -88,7 +87,7 @@ export class Keyring {
 
   public async forgetAccount(address: string): Promise<void> {
     this.keyring.removePair(address);
-    await this._store.removeAsync(this.toHex(address));
+    await this._store.remove(this.toHex(address));
     delete this.#accounts[address];
   }
 
@@ -156,7 +155,7 @@ export class Keyring {
     const json = pair.toJson(password);
 
     this.keyring.addFromJson(json);
-    await this._store.setAsync(this.toHex(pair.address), json);
+    await this._store.set(this.toHex(pair.address), json);
     this.#accounts[pair.address] = json;
 
     return json;
@@ -168,13 +167,13 @@ export class Keyring {
   ): Promise<boolean> {
     const address = pair.address;
 
-    const json = await this._store.getAsync(this.toHex(address));
+    const json = await this._store.get(this.toHex(address));
     if (!json) return false;
 
     pair.setMeta(meta);
     json.meta = pair.meta;
 
-    await this._store.setAsync(this.toHex(pair.address), json);
+    await this._store.set(this.toHex(pair.address), json);
     this.#accounts[pair.address] = json;
 
     return true;
@@ -206,7 +205,7 @@ export class Keyring {
   //   this.keyring.getPairs().forEach(({ address, meta }: KeyringPair): void => {
   //     data[this.toHex(address)] = { address, meta };
   //   });
-  //   await this._store.setBulkAsync(data);
+  //   await this._store.setBulk(data);
   // }
 
   // private rewriteKey(json: KeyringJson, key: string, hexAddr: string): void {

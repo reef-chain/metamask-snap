@@ -1,12 +1,5 @@
 import { type Json, type OnRpcRequestHandler } from '@metamask/snaps-sdk';
-import {
-  panel,
-  heading,
-  text,
-  divider,
-  image,
-  copyable,
-} from '@metamask/snaps-ui';
+import { panel, heading, text, divider } from '@metamask/snaps-ui';
 import type { HexString } from '@polkadot/util/types';
 import { TypeRegistry } from '@polkadot/types';
 import {
@@ -23,13 +16,11 @@ import {
   RequestJsonRestore,
   KeyringJson,
   MetadataDef,
-  Chain,
 } from './types';
 import { AccountsStore } from './stores/Accounts';
 import { getSelectedAccountIndex } from './utils';
 import RequestBytesSign from './RequestBytesSign';
 import RequestExtrinsicSign from './RequestExtrinsicSign';
-import { reefLogo } from './icon';
 import State from './State';
 import { Call } from '@polkadot/types/interfaces';
 import { availableNetworks, NetworkName } from './networks';
@@ -354,11 +345,9 @@ const signatureRequest = (
     params: {
       type: 'confirmation',
       content: panel([
-        // image(reefLogo),
         heading(isBytes ? 'Sign bytes' : 'Sign payload'),
         divider(),
         text(`**From**: ${origin}`),
-        // copyable('Text to be copied'),
         ...payloadText,
       ]),
     },
@@ -413,7 +402,6 @@ const provideMetadata = async (metadata: MetadataDef, origin: string) => {
     params: {
       type: 'confirmation',
       content: panel([
-        // image(reefLogo),
         heading('Add metadata'),
         divider(),
         text(`**From**: ${origin}`),
@@ -442,24 +430,24 @@ const setStore = async (address: string) => {
     address,
     meta: {},
   };
-  await storeAccounts.setAsync(address, account);
+  await storeAccounts.set(address, account);
   return true;
 };
 
 const getStore = async (address: string) => {
-  return await storeAccounts.getAsync(address);
+  return await storeAccounts.get(address);
 };
 
 const getAllAccounts = async () => {
-  return (await storeAccounts.allAsync()) as any as Json[];
+  return (await storeAccounts.all()) as any as Json[];
 };
 
 const getAllMetadatas = async () => {
-  return (await storeMetadata.allAsync()) as any as Json[];
+  return (await storeMetadata.all()) as any as Json[];
 };
 
 const removeStore = async (address: string) => {
-  await storeAccounts.removeAsync(address);
+  await storeAccounts.remove(address);
   return true;
 };
 

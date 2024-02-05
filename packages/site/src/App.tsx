@@ -1,18 +1,9 @@
 import type { FunctionComponent, ReactNode } from 'react';
 import { useContext } from 'react';
-import styled from 'styled-components';
 
-import { Footer, Header } from './components';
+import { Footer, Header, Wrapper } from './components';
 import { GlobalStyle } from './config/theme';
 import { ToggleThemeContext } from './Root';
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-height: 100vh;
-  max-width: 100vw;
-`;
 
 export type AppProps = {
   children: ReactNode;

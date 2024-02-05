@@ -1,5 +1,4 @@
 import { useContext, useEffect, useState } from 'react';
-import styled from 'styled-components';
 
 import { WsProvider } from '@polkadot/api';
 import { Provider, Signer as ReefVMSigner } from '@reef-chain/evm-provider';
@@ -13,6 +12,14 @@ import {
   Button,
   TextArea,
   Toggle,
+  Container,
+  Heading,
+  Span,
+  Subtitle,
+  SelectInput,
+  Option,
+  CardContainer,
+  ErrorMessage,
 } from '../components';
 import { defaultSnapOrigin } from '../config';
 import { MetamaskActions, MetaMaskContext } from '../hooks';
@@ -20,97 +27,12 @@ import {
   connectSnap,
   getSnap,
   isLocalSnap,
-  sendCreateAccountWithSeed,
-  sendCreateSeed,
-  sendForgetAccount,
-  sendGetNetwork,
-  sendImportAccountsFromJson,
-  sendListAccounts,
-  sendSetNetwork,
   sendToSnap,
   shouldDisplayReconnectButton,
 } from '../utils';
 import { flipIt, getFlipperValue } from './flipperContract';
 import { getMetadata } from '../utils/metadata';
 import { Account, Network } from './types';
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  margin-top: 7.6rem;
-  margin-bottom: 7.6rem;
-  ${({ theme }) => theme.mediaQueries.small} {
-    padding-left: 2.4rem;
-    padding-right: 2.4rem;
-    margin-top: 2rem;
-    margin-bottom: 2rem;
-    width: auto;
-  }
-`;
-
-const Heading = styled.h1`
-  margin-top: 0;
-  margin-bottom: 2.4rem;
-  text-align: center;
-`;
-
-const Span = styled.span`
-  color: ${(props) => props.theme.colors.primary?.default};
-`;
-
-const Subtitle = styled.div`
-  display: flex;
-  align-items: center;
-  font-size: ${({ theme }) => theme.fontSizes.large};
-  font-weight: 500;
-  margin-top: 0;
-  margin-bottom: 0;
-  ${({ theme }) => theme.mediaQueries.small} {
-    font-size: ${({ theme }) => theme.fontSizes.text};
-  }
-`;
-
-const CardContainer = styled.div`
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  max-width: 64.8rem;
-  width: 100%;
-  height: 100%;
-  margin-top: 1.5rem;
-`;
-
-const ErrorMessage = styled.div`
-  background-color: ${({ theme }) => theme.colors.error?.muted};
-  border: 1px solid ${({ theme }) => theme.colors.error?.default};
-  color: ${({ theme }) => theme.colors.error?.alternative};
-  border-radius: ${({ theme }) => theme.radii.default};
-  padding: 2.4rem;
-  margin-bottom: 2.4rem;
-  margin-top: 2.4rem;
-  max-width: 60rem;
-  width: 100%;
-  ${({ theme }) => theme.mediaQueries.small} {
-    padding: 1.6rem;
-    margin-bottom: 1.2rem;
-    margin-top: 1.2rem;
-    max-width: 100%;
-  }
-`;
-
-const SelectInput = styled.select`
-  padding: 0.5rem;
-  font-size: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-`;
-
-const Option = styled.option`
-  padding: 0.5rem;
-`;
 
 const Index = () => {
   const [state, dispatch] = useContext(MetaMaskContext);
@@ -133,7 +55,6 @@ const Index = () => {
   }, [state.installedSnap]);
 
   useEffect(() => {
-    console.log('network changed:', network);
     updateProvider(network);
   }, [network]);
 
@@ -154,11 +75,9 @@ const Index = () => {
 
   const getAccounts = async () => {
     try {
-      const _accounts = await sendListAccounts();
-      console.log(_accounts);
+      const _accounts = await sendToSnap('listAccounts');
       const _selectedAccount = _accounts.find((acc: Account) => acc.isSelected);
       setAccounts(_accounts);
-      // setSelectedAccount(_selectedAccount);
       buildReefSigner(_selectedAccount?.address);
     } catch (error) {
       console.error(error);
@@ -168,8 +87,10 @@ const Index = () => {
 
   const createSeed = async () => {
     try {
-      const res = (await sendCreateSeed()) as { address: string; seed: string };
-      console.log(res);
+      const res = (await sendToSnap('createSeed')) as {
+        address: string;
+        seed: string;
+      };
       setSeed(res.seed);
     } catch (error) {
       console.error(error);
@@ -178,13 +99,9 @@ const Index = () => {
   };
 
   const createAccount = async () => {
-    if (!seed) throw new Error('Seed is required');
     try {
-      const createdAddress = await sendCreateAccountWithSeed(
-        seed,
-        'New Account',
-      );
-      console.log(createdAddress);
+      if (!seed) throw new Error('Seed is required');
+      await sendToSnap('createAccountWithSeed', { seed, name: 'New Account' });
       getAccounts();
     } catch (error) {
       console.error(error);
@@ -193,9 +110,11 @@ const Index = () => {
   };
 
   const deleteAccount = async () => {
-    if (!addressDelete) throw new Error('No account to delete');
     try {
-      await sendForgetAccount(addressDelete);
+      if (!addressDelete) throw new Error('No account to delete');
+      await sendToSnap('forgetAccount', {
+        address: addressDelete,
+      });
       console.log('Account deleted');
       getAccounts();
     } catch (error) {
@@ -236,7 +155,10 @@ const Index = () => {
     };
     const password = 'my_password';
 
-    await sendImportAccountsFromJson(json, password);
+    await sendToSnap('importAccounts', {
+      file: json,
+      password: password,
+    });
     getAccounts();
   };
 
@@ -245,15 +167,14 @@ const Index = () => {
     const signer = new Signer();
     const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
     setReefVmSigner(newReefVmSigner);
-    console.log('Reef signer built:', newReefVmSigner);
   };
 
   const flipValue = async () => {
-    if (!reefVmSigner) throw new Error('Reef signer is required');
     try {
-      var ctrRes = await flipIt(reefVmSigner);
-      console.log('flipped=', ctrRes);
-      getFlipperValue(reefVmSigner);
+      if (!reefVmSigner) throw new Error('Reef signer is required');
+      await flipIt(reefVmSigner);
+      const res = getFlipperValue(reefVmSigner);
+      console.log('flipper value:', res);
     } catch (e) {
       console.log(e);
     }
@@ -262,16 +183,16 @@ const Index = () => {
   const getFlipValue = async () => {
     if (!reefVmSigner) throw new Error('Reef signer is required');
     try {
-      var ctrRes = await getFlipperValue(reefVmSigner);
-      console.log('flipper value=', ctrRes);
+      const res = await getFlipperValue(reefVmSigner);
+      console.log('flipper value:', res);
     } catch (e) {
       console.log(e);
     }
   };
 
   const signBytes = async () => {
-    if (!reefVmSigner) throw new Error('Reef signer is required');
     try {
+      if (!reefVmSigner) throw new Error('Reef signer is required');
       const messageSigned = await reefVmSigner.signingKey.signRaw!({
         address: reefVmSigner._substrateAddress,
         data: 'hello world',
@@ -332,15 +253,15 @@ const Index = () => {
   };
 
   const getNetwork = async () => {
-    const _network = await sendGetNetwork();
+    const _network: Network = await sendToSnap('getNetwork');
     setNetwork(_network);
     return _network;
   };
 
   const switchNetwork = async () => {
-    const _network = await sendSetNetwork(
-      network?.name === 'testnet' ? 'mainnet' : 'testnet',
-    );
+    const _network = await sendToSnap('selectNetwork', {
+      network: network?.name === 'testnet' ? 'mainnet' : 'testnet',
+    });
     setNetwork(_network);
   };
 
@@ -358,7 +279,7 @@ const Index = () => {
     try {
       await _provider.api.isReadyOrError;
     } catch (e) {
-      console.log('Provider isReadyOrError ERROR=', e);
+      console.error('Provider isReadyOrError', e);
       throw e;
     }
 
@@ -367,10 +288,9 @@ const Index = () => {
   };
 
   const handleSelectAccount = async (event: any) => {
-    const res = await sendToSnap('selectAccount', {
+    await sendToSnap('selectAccount', {
       addressSelect: event.target.value,
     });
-    console.log(res);
     getAccounts();
   };
 
@@ -448,7 +368,7 @@ const Index = () => {
             disabled={!state.installedSnap}
           />
         )}
-        <Card
+        {/* <Card
           content={{
             title: 'Init keyring',
             button: (
@@ -466,8 +386,8 @@ const Index = () => {
             Boolean(state.installedSnap) &&
             !shouldDisplayReconnectButton(state.installedSnap)
           }
-        />
-        <Card
+        /> */}
+        {/* <Card
           content={{
             title: 'List accounts',
             description: 'Get list of accounts.',
@@ -486,7 +406,7 @@ const Index = () => {
             Boolean(state.installedSnap) &&
             !shouldDisplayReconnectButton(state.installedSnap)
           }
-        />
+        /> */}
         <Card
           content={{
             title: 'Create mnemonic',
