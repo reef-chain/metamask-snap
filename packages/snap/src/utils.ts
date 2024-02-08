@@ -1,6 +1,8 @@
-export function getSelectedAccountIndex(
+import { Account, KeyringJson } from './types';
+
+export const getSelectedAccountIndex = (
   accountsMeta: { meta: any }[],
-): number | undefined {
+): number | undefined => {
   if (accountsMeta.length) {
     const accsSelectedTsArr = accountsMeta.map((a) => a.meta._isSelectedTs);
     const lastSelectedSort = accsSelectedTsArr.sort((a, b) => {
@@ -15,4 +17,4 @@ export function getSelectedAccountIndex(
   }
 
   return undefined;
-}
+};

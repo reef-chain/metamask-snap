@@ -13,13 +13,11 @@ export default abstract class BaseStore<T> {
   }
 
   public async all(): Promise<T[]> {
-    console.log('Store.all', this.#prefix);
-
     const result = await snap.request({
       method: 'snap_manageState',
       params: { operation: 'get', encrypted: ENCRYPTED_STORAGE },
     });
-    console.log('Store.all result', result);
+
     return Object.entries(result || {})
       .filter(([key]) => key.startsWith(this.#prefix))
       .map(([_key, value]) => {
@@ -29,7 +27,6 @@ export default abstract class BaseStore<T> {
 
   public async get(_key: string): Promise<T | undefined> {
     const key = `${this.#prefix}${_key}`;
-    console.log('Store.get', key);
 
     const result = await snap.request({
       method: 'snap_manageState',
@@ -40,13 +37,11 @@ export default abstract class BaseStore<T> {
 
   public async set(_key: string, value: T): Promise<void> {
     const key = `${this.#prefix}${_key}`;
-    console.log('Store.set', key);
 
     const state = await snap.request({
       method: 'snap_manageState',
       params: { operation: 'get', encrypted: ENCRYPTED_STORAGE },
     });
-    console.log('Store.set current', state);
 
     await snap.request({
       method: 'snap_manageState',
@@ -62,7 +57,6 @@ export default abstract class BaseStore<T> {
   public async setBulk(record: Record<string, T>): Promise<void> {
     const keys = Object.keys(record).map((key) => `${this.#prefix}${key}`);
     const values = Object.values(record);
-    console.log('Store.setBulk', keys);
 
     const newRecord = Object.fromEntries(
       keys.map((key, index) => [
@@ -75,7 +69,6 @@ export default abstract class BaseStore<T> {
       method: 'snap_manageState',
       params: { operation: 'get', encrypted: ENCRYPTED_STORAGE },
     });
-    console.log('Store.set current', state);
 
     await snap.request({
       method: 'snap_manageState',
@@ -90,7 +83,6 @@ export default abstract class BaseStore<T> {
 
   public async remove(_key: string): Promise<void> {
     const key = `${this.#prefix}${_key}`;
-    console.log('Store.remove', key);
 
     const state = await snap.request({
       method: 'snap_manageState',
@@ -111,16 +103,11 @@ export default abstract class BaseStore<T> {
     console.log('Store.remove done');
   }
 
-  public clear(): void {
-    console.log('Store.clear');
-
-    snap
-      .request({
-        method: 'snap_manageState',
-        params: { operation: 'clear', encrypted: ENCRYPTED_STORAGE },
-      })
-      .then((result) => {
-        console.log('Store.clear result', result);
-      });
+  public async clear(): Promise<void> {
+    await snap.request({
+      method: 'snap_manageState',
+      params: { operation: 'clear', encrypted: ENCRYPTED_STORAGE },
+    });
+    console.log('Store.clear done');
   }
 }

@@ -37,10 +37,10 @@ import { Account, Network } from './types';
 const Index = () => {
   const [state, dispatch] = useContext(MetaMaskContext);
   const [seed, setSeed] = useState<string>();
-  const [addressDelete, setAddressDelete] = useState<string>();
   const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
   const [provider, setProvider] = useState<Provider>();
   const [network, setNetwork] = useState<Network>();
+  const [isDefaultExt, setIsDefaultExt] = useState<boolean>(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
 
   const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
@@ -51,6 +51,7 @@ const Index = () => {
     if (state.installedSnap) {
       getNetwork();
       getAccounts();
+      getIsDefaultExt();
     }
   }, [state.installedSnap]);
 
@@ -79,6 +80,7 @@ const Index = () => {
       const _selectedAccount = _accounts.find((acc: Account) => acc.isSelected);
       setAccounts(_accounts);
       buildReefSigner(_selectedAccount?.address);
+      console.log('accounts:', _accounts);
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
@@ -92,6 +94,7 @@ const Index = () => {
         seed: string;
       };
       setSeed(res.seed);
+      console.log('seed:', res.seed);
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
@@ -111,11 +114,11 @@ const Index = () => {
 
   const deleteAccount = async () => {
     try {
-      if (!addressDelete) throw new Error('No account to delete');
-      await sendToSnap('forgetAccount', {
-        address: addressDelete,
+      if (!reefVmSigner) throw new Error('No account to delete');
+      const res = await sendToSnap('forgetAccount', {
+        addressForget: reefVmSigner!._substrateAddress,
       });
-      console.log('Account deleted');
+      console.log('forgetAccount:', res);
       getAccounts();
     } catch (error) {
       console.error(error);
@@ -123,10 +126,32 @@ const Index = () => {
     }
   };
 
+  const importAccountFromJson = async () => {
+    const json = {
+      encoded:
+        '8bXBJheySjlbHuxAJ7bDr3T32ciHnkZu9bjP3oNha3EAgAAAAQAAAAgAAAA0cejGUbxIo55KuQTuD/CSBk2Or2sbfp1gamdfanRBB8ysNa4GQxRGi+GI6yTbBCaqI3oAUuBRf11XpQWgVibV+OPSONABmtKEHRdrhTB5rwsQwVG1LcP8Q/nlgZ9Fs87gd21ZcyIA7MjCj9KMPmUeqgRr18CrBpO0vGL/oHWcC8TbdUZ+lk4V3Ksw7F4esIXB/VNuLOcyx2DrRSmK',
+      encoding: {
+        content: ['pkcs8', 'sr25519'],
+        type: ['scrypt', 'xsalsa20-poly1305'],
+        version: '3',
+      },
+      address: '5CiQSTanh84sGgN6PL5WGmFYtEEBsgxVUp5Tmu5p1Zxjbrxw',
+      meta: { genesisHash: '', name: 'mock1', whenCreated: 1707381299466 },
+    };
+
+    const password = 'mock1pass';
+
+    await sendToSnap('importAccount', {
+      file: json,
+      password: password,
+    });
+    getAccounts();
+  };
+
   const importAccountsFromJson = async () => {
     const json = {
       encoded:
-        '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',
+        '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',
       encoding: {
         content: ['batch-pkcs8'],
         type: ['scrypt', 'xsalsa20-poly1305'],
@@ -134,26 +159,21 @@ const Index = () => {
       },
       accounts: [
         {
-          address: '5C4umxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-          meta: {
-            _isSelectedTs: 1687958250560,
-            genesisHash: '',
-            name: 'Reef-1',
-            whenCreated: 1658132263282,
-          },
+          address: '5CiQSTanh84sGgN6PL5WGmFYtEEBsgxVUp5Tmu5p1Zxjbrxw',
+          meta: { genesisHash: '', name: 'mock1', whenCreated: 1707381299466 },
         },
         {
-          address: '5CqNxQxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-          meta: {
-            _isSelectedTs: 1691135429767,
-            genesisHash: '',
-            name: 'Reef-2',
-            whenCreated: 1658132183325,
-          },
+          address: '5EqfJvfeST22TMvRzFLrnN3b29NuVCfW5rbXmqNGDYvBrz2v',
+          meta: { genesisHash: '', name: 'mock2', whenCreated: 1707381325392 },
+        },
+        {
+          address: '5EA7s77Aa6FAZGJrHVngiDP8NwGUK8593DVWdR5ULEpPWseP',
+          meta: { genesisHash: '', name: 'mock3', whenCreated: 1707381349734 },
         },
       ],
     };
-    const password = 'my_password';
+
+    const password = 'mockbatch';
 
     await sendToSnap('importAccounts', {
       file: json,
@@ -163,6 +183,10 @@ const Index = () => {
   };
 
   const buildReefSigner = async (address: string) => {
+    if (!address) {
+      setReefVmSigner(undefined);
+      return;
+    }
     const _provider = provider || (await updateProvider(network));
     const signer = new Signer();
     const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
@@ -173,7 +197,7 @@ const Index = () => {
     try {
       if (!reefVmSigner) throw new Error('Reef signer is required');
       await flipIt(reefVmSigner);
-      const res = getFlipperValue(reefVmSigner);
+      const res = await getFlipperValue(reefVmSigner);
       console.log('flipper value:', res);
     } catch (e) {
       console.log(e);
@@ -204,42 +228,6 @@ const Index = () => {
     }
   };
 
-  const setStore = async () => {
-    const res = await sendToSnap('setStore', {
-      address: seed || 'test',
-    });
-    console.log(res);
-  };
-
-  const getStore = async () => {
-    const res = await sendToSnap('getStore', {
-      address: seed || 'test',
-    });
-    console.log(res);
-  };
-
-  const getAllAccounts = async () => {
-    const res = await sendToSnap('getAllAccounts');
-    console.log(res);
-  };
-
-  const getAllMetadata = async () => {
-    const res = await sendToSnap('getAllMetadatas');
-    console.log(res);
-  };
-
-  const removeStore = async () => {
-    const res = await sendToSnap('removeStore', {
-      address: seed || 'test',
-    });
-    console.log(res);
-  };
-
-  const clearStores = async () => {
-    const res = await sendToSnap('clearAllStores');
-    console.log(res);
-  };
-
   const listMetadata = async () => {
     const res = await sendToSnap('listMetadata');
     console.log(res);
@@ -263,6 +251,18 @@ const Index = () => {
       network: network?.name === 'testnet' ? 'mainnet' : 'testnet',
     });
     setNetwork(_network);
+  };
+
+  const getIsDefaultExt = async () => {
+    const _isDefaultExt = await sendToSnap('isDefaultExtension');
+    setIsDefaultExt(_isDefaultExt);
+  };
+
+  const switchIsDefaultExt = async () => {
+    const _isDefaultExt = await sendToSnap('setAsDefaultExtension', {
+      isDefault: !isDefaultExt,
+    });
+    setIsDefaultExt(_isDefaultExt);
   };
 
   const updateProvider = async (network?: Network) => {
@@ -294,6 +294,16 @@ const Index = () => {
     getAccounts();
   };
 
+  const getAllStores = async () => {
+    const res = await sendToSnap('getAllStores');
+    console.log(res);
+  };
+
+  const clearAllStores = async () => {
+    const res = await sendToSnap('clearAllStores');
+    console.log(res);
+  };
+
   return (
     <Container>
       <Heading>
@@ -307,20 +317,32 @@ const Index = () => {
             defaultChecked={network?.name === 'mainnet'}
           />
         )}
+        {state.installedSnap && (
+          <>
+            <div>Default extension: {isDefaultExt ? ' ✅' : ' ❌'}</div>
+            <Toggle
+              onToggle={switchIsDefaultExt}
+              defaultChecked={isDefaultExt}
+            />
+          </>
+        )}
       </Subtitle>
       {accounts.length > 0 && (
-        <SelectInput
-          value={reefVmSigner?._substrateAddress}
-          onChange={handleSelectAccount}
-        >
-          <Option value="">Select account...</Option>
-          {accounts.map((account, index) => (
-            <Option key={index} value={account.address}>
-              {account.address} - {account.name}
-              {account.isSelected ? ' ✅' : ''}
-            </Option>
-          ))}
-        </SelectInput>
+        <Subtitle>
+          <SelectInput
+            value={reefVmSigner?._substrateAddress}
+            onChange={handleSelectAccount}
+          >
+            <Option value="">Select account...</Option>
+            {accounts.map((account, index) => (
+              <Option key={index} value={account.address}>
+                {account.address} - {account.name}
+                {account.isSelected ? ' ✅' : ''}
+              </Option>
+            ))}
+          </SelectInput>
+          <Button onClick={() => deleteAccount()}>Delete account</Button>
+        </Subtitle>
       )}
       <CardContainer>
         {state.error && (
@@ -368,45 +390,6 @@ const Index = () => {
             disabled={!state.installedSnap}
           />
         )}
-        {/* <Card
-          content={{
-            title: 'Init keyring',
-            button: (
-              <Button
-                onClick={() => sendToSnap('initKeyring')}
-                disabled={!state.installedSnap}
-              >
-                Init keyring
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        /> */}
-        {/* <Card
-          content={{
-            title: 'List accounts',
-            description: 'Get list of accounts.',
-            button: (
-              <Button
-                onClick={() => getAccounts()}
-                disabled={!state.installedSnap}
-              >
-                List accounts
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        /> */}
         <Card
           content={{
             title: 'Create mnemonic',
@@ -466,18 +449,13 @@ const Index = () => {
         />
         <Card
           content={{
-            title: 'Delete account',
-            input: (
-              <TextArea
-                onChange={(event) => setAddressDelete(event.target.value)}
-              />
-            ),
+            title: 'Import account from JSON',
             button: (
               <Button
-                onClick={() => deleteAccount()}
+                onClick={() => importAccountFromJson()}
                 disabled={!state.installedSnap}
               >
-                Delete account
+                Import account
               </Button>
             ),
           }}
@@ -488,16 +466,15 @@ const Index = () => {
             !shouldDisplayReconnectButton(state.installedSnap)
           }
         />
-        {/* <Card
+        <Card
           content={{
-            title: 'Import from JSON',
-            description: 'Import accounts from JSON file.',
+            title: 'Import multiple accounts from JSON',
             button: (
               <Button
                 onClick={() => importAccountsFromJson()}
                 disabled={!state.installedSnap}
               >
-                Import accounts
+                Import batch
               </Button>
             ),
           }}
@@ -507,7 +484,7 @@ const Index = () => {
             Boolean(state.installedSnap) &&
             !shouldDisplayReconnectButton(state.installedSnap)
           }
-        /> */}
+        />
         <Card
           content={{
             title: 'Flip',
@@ -570,124 +547,6 @@ const Index = () => {
         />
         <Card
           content={{
-            title: 'Set store',
-            description: 'Set store value.',
-            button: (
-              <Button
-                onClick={() => setStore()}
-                disabled={!state.installedSnap}
-              >
-                Set store
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Get store',
-            description: 'Get store value.',
-            button: (
-              <Button
-                onClick={() => getStore()}
-                disabled={!state.installedSnap}
-              >
-                Get store
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Get all accounts from store',
-            button: (
-              <Button
-                onClick={() => getAllAccounts()}
-                disabled={!state.installedSnap}
-              >
-                Get accounts
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Get metadatas from store',
-            button: (
-              <Button
-                onClick={() => getAllMetadata()}
-                disabled={!state.installedSnap}
-              >
-                Get metadatas
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Remove store',
-            description: 'Remove store value.',
-            button: (
-              <Button
-                onClick={() => removeStore()}
-                disabled={!state.installedSnap}
-              >
-                Remove store
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Clear stores',
-            description: 'Clear all stores.',
-            button: (
-              <Button
-                onClick={() => clearStores()}
-                disabled={!state.installedSnap}
-              >
-                Clear stores
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
             title: 'List metadata',
             description: 'List all metadata definitions stored in snap.',
             button: (
@@ -717,6 +576,44 @@ const Index = () => {
                 disabled={!state.installedSnap}
               >
                 Update metadata
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Get all data from store',
+            button: (
+              <Button
+                onClick={() => getAllStores()}
+                disabled={!state.installedSnap}
+              >
+                Get all stores
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Remove all data from store',
+            button: (
+              <Button
+                onClick={() => clearAllStores()}
+                disabled={!state.installedSnap}
+              >
+                Remove all stores
               </Button>
             ),
           }}

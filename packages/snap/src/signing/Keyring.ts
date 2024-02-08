@@ -15,8 +15,8 @@ import type { Prefix } from '@polkadot/util-crypto/address/types';
 import { u8aToHex } from '@polkadot/util';
 import { base64Decode, jsonDecrypt } from '@polkadot/util-crypto';
 
-import { AccountsStore } from './stores/Accounts';
-import { CreateResult, KeyringAddress, KeyringJson } from './types';
+import { AccountsStore } from '../stores/Accounts';
+import { CreateResult, KeyringAddress, KeyringJson } from '../types';
 
 export class Keyring {
   #accounts: Record<string, KeyringJson> = {};
@@ -52,31 +52,27 @@ export class Keyring {
     return this.keyring.getPair(address);
   }
 
-  public getPairs(): KeyringPair[] {
-    return this.keyring.getPairs();
-  }
+  public async addPair(pair: KeyringPair): Promise<CreateResult> {
+    // Remove password
+    pair.encodePkcs8();
 
-  public async addPair(
-    pair: KeyringPair,
-    password: string,
-  ): Promise<CreateResult> {
     this.keyring.addPair(pair);
 
     return {
-      json: await this.saveAccount(pair, password),
+      json: await this.saveAccount(pair),
       pair,
     };
   }
 
   public async addUri(
     suri: string,
-    password?: string,
     meta: KeyringPair$Meta = {},
   ): Promise<CreateResult> {
     const pair = this.keyring.addFromUri(suri, meta, 'sr25519');
+    console.log('pair is locked', pair.isLocked);
 
     return {
-      json: await this.saveAccount(pair, password),
+      json: await this.saveAccount(pair),
       pair,
     };
   }
@@ -97,23 +93,10 @@ export class Keyring {
       .filter((account): account is KeyringAddress => !!account);
   }
 
-  public getAddress(_address: string | Uint8Array): KeyringAddress | undefined {
-    const address = isString(_address)
-      ? _address
-      : this.keyring.encodeAddress(_address);
-    const publicKey = this.keyring.decodeAddress(address);
-    const keyringJson = this.#accounts[address];
-
-    return (
-      keyringJson && {
-        address,
-        meta: keyringJson.meta,
-        publicKey,
-      }
-    );
-  }
-
-  public restoreAccount(json: KeyringPair$Json, password: string): KeyringPair {
+  public async restoreAccount(
+    json: KeyringPair$Json,
+    password: string,
+  ): Promise<KeyringPair> {
     const cryptoType = Array.isArray(json.encoding.content)
       ? json.encoding.content[1]
       : 'sr25519';
@@ -128,37 +111,27 @@ export class Keyring {
       encType,
     );
 
-    // unlock, save account and then lock (locking cleans secretKey, so needs to be last)
+    // Unlock the account
     pair.decodePkcs8(password);
-    this.addPair(pair, password);
-    pair.lock();
+
+    await this.addPair(pair);
 
     return pair;
   }
 
-  public restoreAccounts(json: EncryptedJson, password: string): void {
+  public async restoreAccounts(
+    json: EncryptedJson,
+    password: string,
+  ): Promise<void> {
     const accounts: KeyringJson[] = JSON.parse(
       u8aToString(jsonDecrypt(json, password)),
     ) as KeyringJson[];
 
-    accounts.forEach((account) => {
-      this.loadAccount(account, this.toHex(account.address));
-    });
-  }
-
-  public async saveAccount(
-    pair: KeyringPair,
-    password?: string,
-  ): Promise<KeyringPair$Json> {
-    this.addTimestamp(pair);
-
-    const json = pair.toJson(password);
-
-    this.keyring.addFromJson(json);
-    await this._store.set(this.toHex(pair.address), json);
-    this.#accounts[pair.address] = json;
-
-    return json;
+    for (const account of accounts) {
+      const pair = this.keyring.addFromJson(account as KeyringPair$Json, true);
+      this.#accounts[pair.address] = account;
+      this.saveAccount(pair);
+    }
   }
 
   public async saveAccountMeta(
@@ -184,7 +157,6 @@ export class Keyring {
   private initKeyring(): void {
     const keyring = new BaseKeyring();
     this.#keyring = keyring;
-    // this.addAccountPairs();
   }
 
   private addTimestamp(pair: KeyringPair): void {
@@ -200,36 +172,44 @@ export class Keyring {
     return this.keyring.encodeAddress(key, ss58Format);
   };
 
-  // private async addAccountPairs(): Promise<void> {
-  //   const data: Record<string, KeyringJson> = {};
-  //   this.keyring.getPairs().forEach(({ address, meta }: KeyringPair): void => {
-  //     data[this.toHex(address)] = { address, meta };
-  //   });
-  //   await this._store.setBulk(data);
-  // }
-
-  // private rewriteKey(json: KeyringJson, key: string, hexAddr: string): void {
-  //   this._store.remove(key);
-  //   this._store.set(hexAddr, json);
-  // }
-
   private loadAccount(json: KeyringJson, key?: string): void {
     if ((json as KeyringPair$Json).encoded) {
       const pair = this.keyring.addFromJson(json as KeyringPair$Json, true);
       this.#accounts[pair.address] = json;
     }
-
-    // TODO: why is this needed? maybe for restoring?
-    // const [, hexAddr] = key.split(':');
-    // this.rewriteKey(json, key, this.accountKey(hexAddr!.trim()));
   }
 
   private toHex(address: string): string {
     return u8aToHex(decodeAddress(address, true));
   }
 
-  // private accountKey(address: string): string {
-  //   const hexAddress = u8aToHex(decodeAddress(address, true));
-  //   return `${ACCOUNT_PREFIX}${hexAddress}`;
-  // }
+  private getAddress(
+    _address: string | Uint8Array,
+  ): KeyringAddress | undefined {
+    const address = isString(_address)
+      ? _address
+      : this.keyring.encodeAddress(_address);
+    const publicKey = this.keyring.decodeAddress(address);
+    const keyringJson = this.#accounts[address];
+
+    return (
+      keyringJson && {
+        address,
+        meta: keyringJson.meta,
+        publicKey,
+      }
+    );
+  }
+
+  public async saveAccount(pair: KeyringPair): Promise<KeyringPair$Json> {
+    this.addTimestamp(pair);
+
+    const json = pair.toJson();
+
+    this.keyring.addFromJson(json);
+    await this._store.set(this.toHex(pair.address), json);
+    this.#accounts[pair.address] = json;
+
+    return json;
+  }
 }

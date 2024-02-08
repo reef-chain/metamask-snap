@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Chain, MetadataDef } from './types';
-import MetadataStore from './stores/Metadata';
-import NetworkStore from './stores/Network';
+import { MetadataStore } from './stores/Metadata';
+import { PreferencesStore } from './stores/Preferences';
 import { Metadata, TypeRegistry } from '@polkadot/types';
 import { base64Decode } from '@polkadot/util-crypto';
-import { NetworkName } from './networks';
+import { NetworkName } from './config/networks';
+import { config } from './config/config';
 
 const SELECTED_NETWORK_KEY = 'selected-network';
-const DEFAULT_NETWORK = 'testnet'; // TODO switch to mainnet
+const LAST_SET_AS_DEFAULT = 'last-set-as-default';
 const definitions = new Map<string, MetadataDef>();
 const expanded = new Map<string, Chain>();
 
@@ -18,27 +19,41 @@ export function addMetadata(def: MetadataDef): void {
 }
 
 export default class State {
-  readonly #networkStore = new NetworkStore();
+  readonly #preferencesStore = new PreferencesStore();
   #network?: NetworkName;
+  #lastSetAsDefault = 0;
   readonly #metaStore = new MetadataStore();
 
-  constructor() {
-    this.#networkStore.get(SELECTED_NETWORK_KEY).then((network) => {
-      this.#network = network || DEFAULT_NETWORK;
-    });
-
-    this.#metaStore.all().then((defs: MetadataDef[]) => {
-      defs.forEach((def) => addMetadata(def));
-    });
+  async init() {
+    const [metaDefs, selectedNetwork, lastSetAsDefault] = await Promise.all([
+      this.#metaStore.all(),
+      this.#preferencesStore.get(SELECTED_NETWORK_KEY),
+      this.#preferencesStore.get(LAST_SET_AS_DEFAULT),
+    ]);
+    this.#network = selectedNetwork || config.defaultNetwork;
+    this.#lastSetAsDefault = lastSetAsDefault || 0;
+    metaDefs.forEach((def) => addMetadata(def));
   }
 
   public get network(): NetworkName {
-    return this.#network || DEFAULT_NETWORK;
+    return this.#network || config.defaultNetwork;
   }
 
-  public set network(network: NetworkName) {
+  public async setNetwork(network: NetworkName) {
     this.#network = network;
-    this.#networkStore.set(SELECTED_NETWORK_KEY, network);
+    await this.#preferencesStore.set(SELECTED_NETWORK_KEY, network);
+  }
+
+  public get lastSetAsDefault(): number {
+    return this.#lastSetAsDefault;
+  }
+
+  public async setAsDefault(isDefault: boolean) {
+    this.#lastSetAsDefault = isDefault ? Date.now() : 0;
+    await this.#preferencesStore.set(
+      LAST_SET_AS_DEFAULT,
+      this.#lastSetAsDefault,
+    );
   }
 
   public get knownMetadata(): MetadataDef[] {
