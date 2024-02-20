@@ -56,7 +56,12 @@ const Index = () => {
   }, [state.installedSnap]);
 
   useEffect(() => {
-    updateProvider(network);
+    if (network) {
+      updateProvider(network);
+    } else {
+      setNetwork(network);
+      setProvider(undefined);
+    }
   }, [network]);
 
   const connect = async () => {
@@ -142,8 +147,8 @@ const Index = () => {
     const password = 'mock1pass';
 
     await sendToSnap('importAccount', {
-      file: json,
-      password: password,
+      json,
+      password,
     });
     getAccounts();
   };

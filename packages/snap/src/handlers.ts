@@ -45,12 +45,22 @@ export const createAccountWithSeed = async (
   return createResult.pair.address;
 };
 
+export const editAccount = async (
+  address: string,
+  name: string,
+): Promise<boolean> => {
+  const pair = keyring.getPair(address);
+  if (!pair) throw new Error('Account not found');
+  await keyring.saveAccountMeta(pair, { ...pair.meta, name });
+  return true;
+}
+
 export const jsonRestore = async ({
-  file,
+  json,
   password,
 }: RequestJsonRestore): Promise<void> => {
   try {
-    await keyring.restoreAccount(file, password);
+    await keyring.restoreAccount(json, password);
   } catch (error) {
     throw new Error((error as Error).message);
   }

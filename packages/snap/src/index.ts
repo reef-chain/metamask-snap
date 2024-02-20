@@ -19,6 +19,7 @@ import {
   clearAllStores,
   createAccountWithSeed,
   createSeed,
+  editAccount,
   forgetAccount,
   getAllStores,
   jsonRestore,
@@ -123,15 +124,21 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
       if (!seed || !name) throw new Error('Params not found.');
       return await createAccountWithSeed(seed, name);
 
+    case 'renameAccount':
+      const { addressRename, newName } = request.params as Record<string, string>;
+      if (!addressRename || !newName) throw new Error('Params not found.');
+      return await editAccount(addressRename, newName);
+
     case 'importAccount':
       const requestJsonRestore = request.params as any as RequestJsonRestore;
       await jsonRestore(requestJsonRestore);
       return true;
 
-    case 'importAccounts':
-      const requestBatchRestore = request.params as any as RequestBatchRestore;
-      await batchRestore(requestBatchRestore);
-      return true;
+    // TODO: password is for batch file, but we need passwords fo each account to unlock them
+    // case 'importAccounts':
+    //   const requestBatchRestore = request.params as any as RequestBatchRestore;
+    //   await batchRestore(requestBatchRestore);
+    //   return true;
 
     case 'forgetAccount':
       const { addressForget } = request.params as Record<string, string>;

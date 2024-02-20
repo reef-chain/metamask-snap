@@ -41,7 +41,7 @@ export interface RequestSign {
 }
 
 export interface RequestJsonRestore {
-  file: KeyringPair$Json;
+  json: KeyringPair$Json;
   password: string;
 }
 
