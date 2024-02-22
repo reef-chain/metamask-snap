@@ -25,6 +25,7 @@ import { Network, availableNetworks } from './config/networks';
 import { keyring, state } from './index';
 import { getSelectedAccountIndex } from './utils';
 import { PreferencesStore } from './stores/Preferences';
+import { KeyringPair$Json } from '@polkadot/keyring/types';
 
 export const createSeed = (): {
   address: string;
@@ -76,6 +77,11 @@ export const batchRestore = async ({
   } catch (error) {
     throw new Error((error as Error).message);
   }
+};
+
+export const exportAccount = (address: string, password: string): KeyringPair$Json => {
+  const pair = keyring.getPair(address);
+  return keyring.backupAccount(pair, password);
 };
 
 export const forgetAccount = async (address: string) => {
@@ -292,7 +298,7 @@ export const clearAllStores = async () => {
 
 const renderMethod = (data: string, network: Network) => {
   const chain = state.findExpandedMetadata(network.genesisHash);
-  if (!chain) return [text(`**Method data**: ${data}`)];
+  if (!chain) return [text('**Method data**'), copyable(data)];
 
   let args: any = null;
   let method: Call | null = null;
@@ -302,10 +308,10 @@ const renderMethod = (data: string, network: Network) => {
     args = (method!.toHuman() as { args: AnyJson }).args;
   } catch (error) {
     console.error('Error decoding method', chain);
-    return [text(`**Method data**: ${data}`)];
+    return [text('**Method data**'), copyable(data)];
   }
 
-  if (!method || !args) return [text(`**Method data**: ${data}`)];
+  if (!method || !args) return [text('**Method data**'), copyable(data)];
 
   const res = [];
   const methodName = `${method.section}.${method.method}`;

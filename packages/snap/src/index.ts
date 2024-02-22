@@ -20,6 +20,7 @@ import {
   createAccountWithSeed,
   createSeed,
   editAccount,
+  exportAccount,
   forgetAccount,
   getAllStores,
   jsonRestore,
@@ -139,6 +140,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     //   const requestBatchRestore = request.params as any as RequestBatchRestore;
     //   await batchRestore(requestBatchRestore);
     //   return true;
+
+    case 'exportAccount':
+      const { addressExport, passwordExport } = request.params as Record<string, string>;
+      if (!addressExport || !passwordExport) throw new Error('Params not found.');
+      return exportAccount(addressExport, passwordExport) as unknown as Json;;
 
     case 'forgetAccount':
       const { addressForget } = request.params as Record<string, string>;

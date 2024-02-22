@@ -69,7 +69,6 @@ export class Keyring {
     meta: KeyringPair$Meta = {},
   ): Promise<CreateResult> {
     const pair = this.keyring.addFromUri(suri, meta, 'sr25519');
-    console.log('pair is locked', pair.isLocked);
 
     return {
       json: await this.saveAccount(pair),
@@ -132,6 +131,22 @@ export class Keyring {
       this.#accounts[pair.address] = account;
       this.saveAccount(pair);
     }
+  }
+
+  public backupAccount(pair: KeyringPair, password: string): KeyringPair$Json {
+    if (pair.isLocked) {
+      pair.decodePkcs8();
+    }
+
+    // Set password for the backup
+    pair.encodePkcs8(password);
+
+    const json = pair.toJson(password);
+
+    // Remove password
+    pair.encodePkcs8();
+
+    return json;
   }
 
   public async saveAccountMeta(

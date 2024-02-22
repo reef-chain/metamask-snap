@@ -117,6 +117,20 @@ const Index = () => {
     }
   };
 
+  const renameAccount = async () => {
+    try {
+      if (!reefVmSigner) throw new Error('No account to delete');
+      await sendToSnap('renameAccount', {
+        addressRename: reefVmSigner!._substrateAddress,
+        newName: 'New Name'
+      });
+      getAccounts();
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
+    }
+  }
+
   const deleteAccount = async () => {
     try {
       if (!reefVmSigner) throw new Error('No account to delete');
@@ -186,6 +200,20 @@ const Index = () => {
     });
     getAccounts();
   };
+
+  const exportAccount = async (): Promise<void> => {
+    if (!reefVmSigner) throw new Error('No account to delete');
+    
+    const address = reefVmSigner._substrateAddress;
+    const password = 'password123';
+
+    const json = await sendToSnap('exportAccount', { 
+      addressExport: address,
+      passwordExport: password
+    });
+  
+    console.log('exportAccount:', json);
+  }
 
   const buildReefSigner = async (address: string) => {
     if (!address) {
@@ -429,6 +457,22 @@ const Index = () => {
             !shouldDisplayReconnectButton(state.installedSnap)
           }
         />
+      <Card
+          content={{
+            title: 'Rename account',
+            button: (
+              <Button onClick={renameAccount} disabled={!state.installedSnap}>
+                Rename account
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
         <Card
           content={{
             title: 'Import from mnemonic',
@@ -480,6 +524,25 @@ const Index = () => {
                 disabled={!state.installedSnap}
               >
                 Import batch
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
+            title: 'Export account to JSON',
+            button: (
+              <Button
+                onClick={() => exportAccount()}
+                disabled={!state.installedSnap}
+              >
+                Export account
               </Button>
             ),
           }}
