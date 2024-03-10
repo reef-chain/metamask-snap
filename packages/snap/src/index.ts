@@ -9,13 +9,12 @@ import { cryptoWaitReady } from '@polkadot/util-crypto';
 
 import { Keyring } from './signing/Keyring';
 import { config } from './config/config';
-import { RequestBatchRestore, RequestJsonRestore, MetadataDef } from './types';
+import { RequestJsonRestore, MetadataDef } from './types';
 import State from './State';
 import { availableNetworks, NetworkName } from './config/networks';
 import { reefLogo } from './icon';
 import {
   accountsList,
-  batchRestore,
   clearAllStores,
   createAccountWithSeed,
   createSeed,
@@ -86,18 +85,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
   if (!keyringInitialized) await initKeyring();
 
   switch (request.method) {
-    // Default extension
-    case 'isDefaultExtension':
-      return {
-        setAsDefault: state.lastSetAsDefault > 0,
-        lastSet: state.lastSetAsDefault,
-      };
-
-    case 'setAsDefaultExtension':
-      const { isDefault } = request.params as Record<string, boolean>;
-      await state.setAsDefault(isDefault as boolean);
-      return state.lastSetAsDefault > 0;
-
     // Network
     case 'getNetwork':
       return {
@@ -126,7 +113,10 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
       return await createAccountWithSeed(seed, name);
 
     case 'renameAccount':
-      const { addressRename, newName } = request.params as Record<string, string>;
+      const { addressRename, newName } = request.params as Record<
+        string,
+        string
+      >;
       if (!addressRename || !newName) throw new Error('Params not found.');
       return await editAccount(addressRename, newName);
 
@@ -142,9 +132,13 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     //   return true;
 
     case 'exportAccount':
-      const { addressExport, passwordExport } = request.params as Record<string, string>;
-      if (!addressExport || !passwordExport) throw new Error('Params not found.');
-      return exportAccount(addressExport, passwordExport) as unknown as Json;;
+      const { addressExport, passwordExport } = request.params as Record<
+        string,
+        string
+      >;
+      if (!addressExport || !passwordExport)
+        throw new Error('Params not found.');
+      return exportAccount(addressExport, passwordExport) as unknown as Json;
 
     case 'forgetAccount':
       const { addressForget } = request.params as Record<string, string>;
@@ -186,12 +180,12 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
       return await provideMetadata(metadataReq, origin);
 
     // Test storage
-    // TODO: remove
-    case 'getAllStores':
-      return await getAllStores();
+    // TODO: remove test utilities
+    // case 'getAllStores':
+    //   return await getAllStores();
 
-    case 'clearAllStores':
-      return clearAllStores();
+    // case 'clearAllStores':
+    //   return clearAllStores();
 
     default:
       throw new Error('Method not found.');

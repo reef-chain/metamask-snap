@@ -10,7 +10,6 @@ import { NetworkName } from './config/networks';
 import { config } from './config/config';
 
 const SELECTED_NETWORK_KEY = 'selected-network';
-const LAST_SET_AS_DEFAULT = 'last-set-as-default';
 const definitions = new Map<string, MetadataDef>();
 const expanded = new Map<string, Chain>();
 
@@ -21,17 +20,14 @@ export function addMetadata(def: MetadataDef): void {
 export default class State {
   readonly #preferencesStore = new PreferencesStore();
   #network?: NetworkName;
-  #lastSetAsDefault = 0;
   readonly #metaStore = new MetadataStore();
 
   async init() {
-    const [metaDefs, selectedNetwork, lastSetAsDefault] = await Promise.all([
+    const [metaDefs, selectedNetwork] = await Promise.all([
       this.#metaStore.all(),
       this.#preferencesStore.get(SELECTED_NETWORK_KEY),
-      this.#preferencesStore.get(LAST_SET_AS_DEFAULT),
     ]);
     this.#network = selectedNetwork || config.defaultNetwork;
-    this.#lastSetAsDefault = lastSetAsDefault || 0;
     metaDefs.forEach((def) => addMetadata(def));
   }
 
@@ -42,18 +38,6 @@ export default class State {
   public async setNetwork(network: NetworkName) {
     this.#network = network;
     await this.#preferencesStore.set(SELECTED_NETWORK_KEY, network);
-  }
-
-  public get lastSetAsDefault(): number {
-    return this.#lastSetAsDefault;
-  }
-
-  public async setAsDefault(isDefault: boolean) {
-    this.#lastSetAsDefault = isDefault ? Date.now() : 0;
-    await this.#preferencesStore.set(
-      LAST_SET_AS_DEFAULT,
-      this.#lastSetAsDefault,
-    );
   }
 
   public get knownMetadata(): MetadataDef[] {

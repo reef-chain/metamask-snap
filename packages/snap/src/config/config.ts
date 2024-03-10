@@ -7,5 +7,5 @@ interface Config {
 
 export const config: Config = {
   dappUrl: 'app.reef.io/snap',
-  defaultNetwork: 'testnet', // TODO: switch to mainnet
+  defaultNetwork: 'mainnet',
 };

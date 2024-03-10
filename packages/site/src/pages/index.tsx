@@ -40,7 +40,6 @@ const Index = () => {
   const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
   const [provider, setProvider] = useState<Provider>();
   const [network, setNetwork] = useState<Network>();
-  const [isDefaultExt, setIsDefaultExt] = useState<boolean>(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
 
   const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
@@ -51,7 +50,6 @@ const Index = () => {
     if (state.installedSnap) {
       getNetwork();
       getAccounts();
-      getIsDefaultExt();
     }
   }, [state.installedSnap]);
 
@@ -122,14 +120,14 @@ const Index = () => {
       if (!reefVmSigner) throw new Error('No account to delete');
       await sendToSnap('renameAccount', {
         addressRename: reefVmSigner!._substrateAddress,
-        newName: 'New Name'
+        newName: 'New Name',
       });
       getAccounts();
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
     }
-  }
+  };
 
   const deleteAccount = async () => {
     try {
@@ -203,17 +201,17 @@ const Index = () => {
 
   const exportAccount = async (): Promise<void> => {
     if (!reefVmSigner) throw new Error('No account to delete');
-    
+
     const address = reefVmSigner._substrateAddress;
     const password = 'password123';
 
-    const json = await sendToSnap('exportAccount', { 
+    const json = await sendToSnap('exportAccount', {
       addressExport: address,
-      passwordExport: password
+      passwordExport: password,
     });
-  
+
     console.log('exportAccount:', json);
-  }
+  };
 
   const buildReefSigner = async (address: string) => {
     if (!address) {
@@ -286,18 +284,6 @@ const Index = () => {
     setNetwork(_network);
   };
 
-  const getIsDefaultExt = async () => {
-    const _isDefaultExt = await sendToSnap('isDefaultExtension');
-    setIsDefaultExt(_isDefaultExt);
-  };
-
-  const switchIsDefaultExt = async () => {
-    const _isDefaultExt = await sendToSnap('setAsDefaultExtension', {
-      isDefault: !isDefaultExt,
-    });
-    setIsDefaultExt(_isDefaultExt);
-  };
-
   const updateProvider = async (network?: Network) => {
     let _network = network;
     if (!_network) {
@@ -349,15 +335,6 @@ const Index = () => {
             onToggle={switchNetwork}
             defaultChecked={network?.name === 'mainnet'}
           />
-        )}
-        {state.installedSnap && (
-          <>
-            <div>Default extension: {isDefaultExt ? ' ✅' : ' ❌'}</div>
-            <Toggle
-              onToggle={switchIsDefaultExt}
-              defaultChecked={isDefaultExt}
-            />
-          </>
         )}
       </Subtitle>
       {accounts.length > 0 && (
@@ -457,7 +434,7 @@ const Index = () => {
             !shouldDisplayReconnectButton(state.installedSnap)
           }
         />
-      <Card
+        <Card
           content={{
             title: 'Rename account',
             button: (

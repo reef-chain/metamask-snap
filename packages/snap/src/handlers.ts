@@ -54,7 +54,7 @@ export const editAccount = async (
   if (!pair) throw new Error('Account not found');
   await keyring.saveAccountMeta(pair, { ...pair.meta, name });
   return true;
-}
+};
 
 export const jsonRestore = async ({
   json,
@@ -67,7 +67,6 @@ export const jsonRestore = async ({
   }
 };
 
-// TODO: password is for batch file, but we need passwords fo each account to unlock them
 export const batchRestore = async ({
   file,
   password,
@@ -79,7 +78,10 @@ export const batchRestore = async ({
   }
 };
 
-export const exportAccount = (address: string, password: string): KeyringPair$Json => {
+export const exportAccount = (
+  address: string,
+  password: string,
+): KeyringPair$Json => {
   const pair = keyring.getPair(address);
   return keyring.backupAccount(pair, password);
 };
@@ -343,12 +345,11 @@ const renderMethod = (data: string, network: Network) => {
   }
 
   if (method.meta) {
-    res.push(
-      divider(),
-      text(
-        `ℹ️ _${method.meta.docs.map((d) => d.toString().trim()).join(' ')}_`,
-      ),
-    );
+    let docs = method.meta.docs.map((d) => d.toString().trim()).join(' ');
+    docs = docs.split(' # <weight>').shift() || docs;
+    if (docs.length) {
+      res.push(divider(), text(`ℹ️ ${docs}`));
+    }
   }
 
   return res;
