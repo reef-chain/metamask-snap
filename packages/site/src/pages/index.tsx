@@ -30,13 +30,15 @@ import {
   sendToSnap,
   shouldDisplayReconnectButton,
 } from '../utils';
-import { flipIt, getFlipperValue } from './flipperContract';
-import { getMetadata } from '../utils/metadata';
-import { Account, Network } from './types';
+import { flipIt, getFlipperValue } from '../utils/flipperContract';
+import { buildMetadata, networkNameToGenesisHash } from '../utils/metadata';
+import { Account, Network } from '../types/types';
 
 const Index = () => {
   const [state, dispatch] = useContext(MetaMaskContext);
-  const [seed, setSeed] = useState<string>();
+  const [newName, setNewName] = useState<string>();
+  const [seedGenerate, setSeedGenerate] = useState<string>();
+  const [seedImport, setSeedImport] = useState<string>();
   const [reefVmSigner, setReefVmSigner] = useState<ReefVMSigner>();
   const [provider, setProvider] = useState<Provider>();
   const [network, setNetwork] = useState<Network>();
@@ -62,6 +64,8 @@ const Index = () => {
     }
   }, [network]);
 
+  // Connection ///////////////////////////////////////////////////
+
   const connect = async () => {
     try {
       await connectSnap();
@@ -77,18 +81,25 @@ const Index = () => {
     }
   };
 
-  const getAccounts = async () => {
-    try {
-      const _accounts = await sendToSnap('listAccounts');
-      const _selectedAccount = _accounts.find((acc: Account) => acc.isSelected);
-      setAccounts(_accounts);
-      buildReefSigner(_selectedAccount?.address);
-      console.log('accounts:', _accounts);
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
+  // Network //////////////////////////////////////////////////////
+
+  const getNetwork = async (showAlert?: boolean) => {
+    const _network: Network = await sendToSnap('getNetwork');
+    setNetwork(_network);
+    if (showAlert) {
+      alert(`Network: ${_network.name}`);
     }
+    return _network;
   };
+
+  const switchNetwork = async () => {
+    const _network = await sendToSnap('selectNetwork', {
+      network: network?.name === 'testnet' ? 'mainnet' : 'testnet',
+    });
+    setNetwork(_network);
+  };
+
+  // Accounts /////////////////////////////////////////////////////
 
   const createSeed = async () => {
     try {
@@ -96,19 +107,22 @@ const Index = () => {
         address: string;
         seed: string;
       };
-      setSeed(res.seed);
-      console.log('seed:', res.seed);
+      setSeedGenerate(res.seed);
+      console.log('Mnemonic:', res.seed);
+      alert(`Mnemonic: ${res.seed}`);
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
     }
   };
 
-  const createAccount = async () => {
+  const createAccount = async (useSeedImport?: boolean) => {
+    const seed = useSeedImport ? seedImport : seedGenerate;
     try {
-      if (!seed) throw new Error('Seed is required');
+      if (!seed) throw new Error('Invalid mnemonic');
       await sendToSnap('createAccountWithSeed', { seed, name: 'New Account' });
       getAccounts();
+      alert('Account created');
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
@@ -117,26 +131,14 @@ const Index = () => {
 
   const renameAccount = async () => {
     try {
-      if (!reefVmSigner) throw new Error('No account to delete');
+      if (!reefVmSigner) throw new Error('No account selected');
+      if (!newName) throw new Error('New name not provided');
       await sendToSnap('renameAccount', {
         addressRename: reefVmSigner!._substrateAddress,
-        newName: 'New Name',
+        newName: newName,
       });
       getAccounts();
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
-  };
-
-  const deleteAccount = async () => {
-    try {
-      if (!reefVmSigner) throw new Error('No account to delete');
-      const res = await sendToSnap('forgetAccount', {
-        addressForget: reefVmSigner!._substrateAddress,
-      });
-      console.log('forgetAccount:', res);
-      getAccounts();
+      alert('Account renamed');
     } catch (error) {
       console.error(error);
       dispatch({ type: MetamaskActions.SetError, payload: error });
@@ -163,40 +165,7 @@ const Index = () => {
       password,
     });
     getAccounts();
-  };
-
-  const importAccountsFromJson = async () => {
-    const json = {
-      encoded:
-        'M3dcU3MhfkxqBG+RjFsrhr//JGOKyLhulUY922SyYwYAgAAAAQAAAAgAAACAOG5p9E0NsI4Xvb8dwFKs3q4wsAcuAc+aAOBNFUlh2jfSQdG0VixjVOawMkRjm57AYePAnKrXprrpgZBluX1IaYzXdeLNEbpseiGG5rKly/CpWEqbjdmQjpcvkdywlgBsTbSB5EE+P1s1mBKaF6lJAHT+g9ykCUYlSBFm+OCgbJDthx3ZsU+0JNuefvpduI2FJtwIm7V4A38DTtEM5hCWBI0F9RRO11vxUULqI0Y70l05HQLpcp6KDleze8kpPFas36biRfYEJ7NflaD10hIiRiP5djUN7Gvs7JvG5LYC21m4TrNEtCsRDdXtM1YcpVznBGTWT4tTA2JeNjIrTQECur5mMJ5jd8anGS4e168sjJSqnPMG8+ZaWePGUf7oTLXsoEL4GZVOYlERIVAoflFWVYB6OA5QyzCePV9hfr5sVBptZ6J8QHsMqA39xkg7GJk6HXtc4Zc1hCIvQX/ofOkdHmP+ShDwTsBOTDmFgTbeEFgPYNXzQwDZVgJ4/i/bF2DmfaVySemJ84JIjHigiMC/A93uIQJEY19PVJW2YjpMPy8RHmaY3ChSH0hw7n+dv5nj9j1a/npMeA0tdqW54g2ZebHHMAJZIIhnG59zjLMCtfT4scZC7XzwRwdjancU1t4DVC1PBiMrU0UOUGQOUytS797N1owh91hntGXezk6AgmVhAK5sHJDeuUmZXI/kEI9q7K89eP/NvU9pQkA/i32mMSvGJJhv1sQD1Y8a/wA8SUxIcznGopYtP4gyzcqsDTJyLExrk45zaKiWfKmv/1Lgl+FtL2Mm7XI7nqtPwz4NJm/whV1bJBxBMvXHiR83tgcOLOzpFJ1HSv5c+GdhZtmb+LajOX+Cw5O1z6pXMV4qcb8bVKj6pW38TMOmrhNuewUHUFk8QL0w8gSDg+BQZr1lys3MeREg1N0JDhm7VVXxxW+v1vR97D4pYoeZeOC6AU+ouhDA4TgNPu1ZwurYQNAklnMsTucUvBQQbpYHJmJCD7Zn9Mp5Od2R5FEGsDNIYBG90Cjp4/0bbxdoXAJPnmNEai3NCUwRMawrvhH6Y+yeGpLnXfML8g5XOCtoUF7DCpPVNdhRO7svPu2W8u3otY8U1Xf5A1Q6mJ8bSmGbmfIWiHZZhRnUuTaTusUCH5RZ3ckoHbmi+wsDZ89KU4jiynQH4/buAECDU7yoP7NR8v8/2WYpAHkgG7yf1QWE0Gzydcv0oqRkprxEKgf8ddji4CzZkDyd+uTFn22hG/SUwQTa8vYfu5Dqww4ofLp6iC0A2gR39ESdP2YbAartp0c+xffo0I9vprj6QKgOSyyURYiKFPTBQg5X+aCytkh/jAEJmKYdB/Pl9ugxlavetzcY5wRnL5/x6x1p0LQZ3YsPILIql6aB2u0IPCiadSyPWqklTvA3xB18o3ty/7tNZEN9WPy9w4PcCfBFmej8leMoXU59q/hLPVzAoNczimKyyzDkU7B4jyuJ3kLgTcf2LpJxO3mxK8xM8ggw7pD9Ilx4+yoQuSqADQz1V5xInJxlR2xfsHGeHv+6GLj1QA0hqbsoJRNEu5rA7I8foM03cmSvj6nDC0QRtp2PcMDwGPnPc6An3Bhu5a3CukfwXkPG9Clwyp5bhWIIXqgN0tG8r0G0fw25VpHaafgG6diImRtDMp8we71BEvoQgeTmcMTaACEIb0bjv1DNgu+qxtEFSF8lvuGK7buid8QD3mdX/HapYSs5t938NxSBHI0t5sF6PNKou9VXv11uWxgZ3D663dGK4GJi4Uv64J/SVVSNglZk2vLUtPID/zU4ID7cag2JqhmjQUjQA7XZ3xcWUQv0g4zl955f2uABxRJ/U7fjmOkT6FSxsY/ja+z0O/W9KiinGrfBcndEBzRkMF01i3OWK6IgcNVHz1qpITsdcPN7ernYRztZh6yVQswCfhQjaZKXHCra4MCJ0ikACk7bs7FD6pgZE2b1vqQ8stuPlU0/kITOuZI7zjim8tvhfc/Fv4zi10MNhOQicvyTuJUKLELol/gR3557hlkhtu4hC7mPQI2SMueemBdtm2WwLLU/p99n3sk/NUySXkdzfrFkXkdU/IBXHw==',
-      encoding: {
-        content: ['batch-pkcs8'],
-        type: ['scrypt', 'xsalsa20-poly1305'],
-        version: '3',
-      },
-      accounts: [
-        {
-          address: '5CiQSTanh84sGgN6PL5WGmFYtEEBsgxVUp5Tmu5p1Zxjbrxw',
-          meta: { genesisHash: '', name: 'mock1', whenCreated: 1707381299466 },
-        },
-        {
-          address: '5EqfJvfeST22TMvRzFLrnN3b29NuVCfW5rbXmqNGDYvBrz2v',
-          meta: { genesisHash: '', name: 'mock2', whenCreated: 1707381325392 },
-        },
-        {
-          address: '5EA7s77Aa6FAZGJrHVngiDP8NwGUK8593DVWdR5ULEpPWseP',
-          meta: { genesisHash: '', name: 'mock3', whenCreated: 1707381349734 },
-        },
-      ],
-    };
-
-    const password = 'mockbatch';
-
-    await sendToSnap('importAccounts', {
-      file: json,
-      password: password,
-    });
-    getAccounts();
+    alert('Account imported');
   };
 
   const exportAccount = async (): Promise<void> => {
@@ -211,78 +180,44 @@ const Index = () => {
     });
 
     console.log('exportAccount:', json);
+    alert(`Account exported: ${JSON.stringify(json)}`);
   };
 
-  const buildReefSigner = async (address: string) => {
-    if (!address) {
-      setReefVmSigner(undefined);
-      return;
-    }
-    const _provider = provider || (await updateProvider(network));
-    const signer = new Signer();
-    const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
-    setReefVmSigner(newReefVmSigner);
-  };
-
-  const flipValue = async () => {
+  const deleteAccount = async () => {
     try {
-      if (!reefVmSigner) throw new Error('Reef signer is required');
-      await flipIt(reefVmSigner);
-      const res = await getFlipperValue(reefVmSigner);
-      console.log('flipper value:', res);
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  const getFlipValue = async () => {
-    if (!reefVmSigner) throw new Error('Reef signer is required');
-    try {
-      const res = await getFlipperValue(reefVmSigner);
-      console.log('flipper value:', res);
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  const signBytes = async () => {
-    try {
-      if (!reefVmSigner) throw new Error('Reef signer is required');
-      const messageSigned = await reefVmSigner.signingKey.signRaw!({
-        address: reefVmSigner._substrateAddress,
-        data: 'hello world',
-        type: 'bytes',
+      if (!reefVmSigner) throw new Error('No account to delete');
+      const res = await sendToSnap('forgetAccount', {
+        addressForget: reefVmSigner!._substrateAddress,
       });
-      console.log('messaged signed:', messageSigned);
-    } catch (e) {
-      console.log(e);
+      console.log('forgetAccount:', res);
+      getAccounts();
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
     }
   };
 
-  const listMetadata = async () => {
-    const res = await sendToSnap('listMetadata');
-    console.log(res);
+  const getAccounts = async () => {
+    try {
+      const _accounts = await sendToSnap('listAccounts');
+      const _selectedAccount = _accounts.find((acc: Account) => acc.isSelected);
+      setAccounts(_accounts);
+      buildReefSigner(_selectedAccount?.address);
+      console.log('accounts:', _accounts);
+    } catch (error) {
+      console.error(error);
+      dispatch({ type: MetamaskActions.SetError, payload: error });
+    }
   };
 
-  const updateMetadata = async () => {
-    const _provider = provider || (await updateProvider(network));
-    const metadata = getMetadata(_provider.api);
-    const res = await sendToSnap('provideMetadata', metadata);
-    console.log(res);
-  };
-
-  const getNetwork = async () => {
-    const _network: Network = await sendToSnap('getNetwork');
-    setNetwork(_network);
-    return _network;
-  };
-
-  const switchNetwork = async () => {
-    const _network = await sendToSnap('selectNetwork', {
-      network: network?.name === 'testnet' ? 'mainnet' : 'testnet',
+  const handleSelectAccount = async (event: any) => {
+    await sendToSnap('selectAccount', {
+      addressSelect: event.target.value,
     });
-    setNetwork(_network);
+    getAccounts();
   };
+
+  // Signing //////////////////////////////////////////////////////
 
   const updateProvider = async (network?: Network) => {
     let _network = network;
@@ -306,12 +241,80 @@ const Index = () => {
     return _provider;
   };
 
-  const handleSelectAccount = async (event: any) => {
-    await sendToSnap('selectAccount', {
-      addressSelect: event.target.value,
-    });
-    getAccounts();
+  const buildReefSigner = async (address: string) => {
+    if (!address) {
+      setReefVmSigner(undefined);
+      return;
+    }
+    const _provider = provider || (await updateProvider(network));
+    const signer = new Signer();
+    const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
+    setReefVmSigner(newReefVmSigner);
   };
+
+  const flipValue = async () => {
+    try {
+      if (!reefVmSigner) throw new Error('Reef signer is required');
+      await flipIt(reefVmSigner);
+      const res = await getFlipperValue(reefVmSigner);
+      console.log('Flipper value:', res);
+      alert(`Flipper value: ${res}`);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const getFlipValue = async () => {
+    if (!reefVmSigner) throw new Error('Reef signer is required');
+    try {
+      const res = await getFlipperValue(reefVmSigner);
+      console.log('Flipper value:', res);
+      alert(`Flipper value: ${res}`);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const signBytes = async () => {
+    try {
+      if (!reefVmSigner) throw new Error('Reef signer is required');
+      const messageSigned = await reefVmSigner.signingKey.signRaw!({
+        address: reefVmSigner._substrateAddress,
+        data: 'hello world',
+        type: 'bytes',
+      });
+      console.log('Messaged signed:', messageSigned);
+      alert(`Message signed: ${messageSigned.signature}`);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  // Metadata /////////////////////////////////////////////////////
+
+  const getMetadata = async () => {
+    if (!network) throw new Error('Network not found');
+    const genesisHash = networkNameToGenesisHash[network.name];
+    const res = await sendToSnap('getMetadata', { genesisHash });
+    console.log(res);
+    alert(`Metadata ${network.name}: ${JSON.stringify(res)}`);
+  };
+
+  const listMetadata = async () => {
+    const res = await sendToSnap('listMetadata');
+    console.log(res);
+    alert(`Metadata: ${JSON.stringify(res)}`);
+  };
+
+  const updateMetadata = async () => {
+    const _provider = provider || (await updateProvider(network));
+    const metadata = buildMetadata(_provider.api);
+    const res = await sendToSnap('provideMetadata', metadata);
+    console.log(res);
+    alert(`Metadata updated: ${JSON.stringify(res)}`);
+  };
+
+  // Test store ///////////////////////////////////////////////////
 
   const getAllStores = async () => {
     const res = await sendToSnap('getAllStores');
@@ -402,6 +405,23 @@ const Index = () => {
         )}
         <Card
           content={{
+            title: 'Get network',
+            description: 'Get selected network.',
+            button: (
+              <Button onClick={() => getNetwork(true)} disabled={!state.installedSnap}>
+                Get network
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
             title: 'Create mnemonic',
             description: 'Generate a mnemonic for a new Reef account.',
             button: (
@@ -420,9 +440,9 @@ const Index = () => {
         <Card
           content={{
             title: 'Create account',
-            description: 'Create new Reef account from mnemonic.',
+            description: 'Create new Reef account from the mnemonic generated.',
             button: (
-              <Button onClick={createAccount} disabled={!state.installedSnap}>
+              <Button onClick={() => createAccount()} disabled={!state.installedSnap}>
                 Create account
               </Button>
             ),
@@ -437,6 +457,10 @@ const Index = () => {
         <Card
           content={{
             title: 'Rename account',
+            description: 'Change name of the selected account.',
+            input: (
+              <input onChange={(event) => setNewName(event.target.value)} />
+            ),
             button: (
               <Button onClick={renameAccount} disabled={!state.installedSnap}>
                 Rename account
@@ -455,11 +479,11 @@ const Index = () => {
             title: 'Import from mnemonic',
             description: 'Import existing account from mnemonic.',
             input: (
-              <TextArea onChange={(event) => setSeed(event.target.value)} />
+              <TextArea onChange={(event) => setSeedImport(event.target.value)} />
             ),
             button: (
               <Button
-                onClick={() => createAccount()}
+                onClick={() => createAccount(true)}
                 disabled={!state.installedSnap}
               >
                 Import account
@@ -482,25 +506,6 @@ const Index = () => {
                 disabled={!state.installedSnap}
               >
                 Import account
-              </Button>
-            ),
-          }}
-          disabled={!state.installedSnap}
-          fullWidth={
-            isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
-          }
-        />
-        <Card
-          content={{
-            title: 'Import multiple accounts from JSON',
-            button: (
-              <Button
-                onClick={() => importAccountsFromJson()}
-                disabled={!state.installedSnap}
-              >
-                Import batch
               </Button>
             ),
           }}
@@ -592,6 +597,26 @@ const Index = () => {
         />
         <Card
           content={{
+            title: 'Get metadata',
+            description: 'Get metadata definition for selected network stored in snap.',
+            button: (
+              <Button
+                onClick={() => getMetadata()}
+                disabled={!state.installedSnap}
+              >
+                Get metadata
+              </Button>
+            ),
+          }}
+          disabled={!state.installedSnap}
+          fullWidth={
+            isMetaMaskReady &&
+            Boolean(state.installedSnap) &&
+            !shouldDisplayReconnectButton(state.installedSnap)
+          }
+        />
+        <Card
+          content={{
             title: 'List metadata',
             description: 'List all metadata definitions stored in snap.',
             button: (
@@ -631,7 +656,7 @@ const Index = () => {
             !shouldDisplayReconnectButton(state.installedSnap)
           }
         />
-        <Card
+        {/* <Card
           content={{
             title: 'Get all data from store',
             button: (
@@ -668,7 +693,7 @@ const Index = () => {
             Boolean(state.installedSnap) &&
             !shouldDisplayReconnectButton(state.installedSnap)
           }
-        />
+        /> */}
       </CardContainer>
     </Container>
   );

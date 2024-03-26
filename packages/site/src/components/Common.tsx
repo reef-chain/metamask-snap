@@ -92,6 +92,7 @@ export const SelectInput = styled.select`
   font-size: 1rem;
   border: 1px solid #ccc;
   border-radius: 4px;
+  margin-right: 1rem;
 `;
 
 export const Option = styled.option`

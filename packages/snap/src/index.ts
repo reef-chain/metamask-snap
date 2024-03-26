@@ -37,15 +37,15 @@ let keyringInitialized = false;
 const initKeyring = async () => {
   try {
     await cryptoWaitReady();
-    console.log('crypto initialized');
+    if (config.debug) console.log('crypto initialized');
     await keyring.loadAll();
-    console.log('accounts loaded:', keyring.getAccounts().length);
+    if (config.debug) console.log('accounts loaded:', keyring.getAccounts().length);
     state = new State();
     await state.init();
-    console.log('selected network:', state.network);
-    console.log('metadata defs:', state.knownMetadata.length);
+    if (config.debug) console.log('selected network:', state.network);
+    if (config.debug) console.log('metadata defs:', state.knownMetadata.length);
     keyringInitialized = true;
-    console.log('initialization completed');
+    if (config.debug) console.log('initialization completed');
   } catch (error) {
     console.error('crypto initialization failed', error);
   }
@@ -67,21 +67,11 @@ export const onInstall: OnInstallHandler = async () => {
   });
 };
 
-/**
- * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
- *
- * @param args - The request handler args as object.
- * @param args.origin - The origin of the request, e.g., the website that
- * invoked the snap.
- * @param args.request - A validated JSON-RPC request object.
- * @returns The result of `snap_dialog`.
- * @throws If the request method is not valid for this snap.
- */
 export const onRpcRequest: OnRpcRequestHandler = async ({
   origin,
   request,
 }) => {
-  console.log('=> onRpcRequest:', request.method);
+  if (config.debug) console.log('=> onRpcRequest:', request.method);
   if (!keyringInitialized) await initKeyring();
 
   switch (request.method) {
@@ -125,7 +115,8 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
       await jsonRestore(requestJsonRestore);
       return true;
 
-    // TODO: password is for batch file, but we need passwords fo each account to unlock them
+    // TODO: Password is for batch file, but we need passwords fo each account to unlock them.
+    //       So batch import is not supported for now.
     // case 'importAccounts':
     //   const requestBatchRestore = request.params as any as RequestBatchRestore;
     //   await batchRestore(requestBatchRestore);

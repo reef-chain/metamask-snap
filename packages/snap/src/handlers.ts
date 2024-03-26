@@ -9,6 +9,7 @@ import {
   SignerPayloadRaw,
 } from '@polkadot/types/types';
 import { mnemonicGenerate } from '@polkadot/util-crypto';
+import { KeyringPair$Json } from '@polkadot/keyring/types';
 
 import {
   Account,
@@ -25,7 +26,6 @@ import { Network, availableNetworks } from './config/networks';
 import { keyring, state } from './index';
 import { getSelectedAccountIndex } from './utils';
 import { PreferencesStore } from './stores/Preferences';
-import { KeyringPair$Json } from '@polkadot/keyring/types';
 
 export const createSeed = (): {
   address: string;

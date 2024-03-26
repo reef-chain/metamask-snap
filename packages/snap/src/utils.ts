@@ -1,5 +1,3 @@
-import { Account, KeyringJson } from './types';
-
 export const getSelectedAccountIndex = (
   accountsMeta: { meta: any }[],
 ): number | undefined => {

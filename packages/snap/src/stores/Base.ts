@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Json } from '@metamask/snaps-sdk';
+import { config } from '../config/config';
 
 const ENCRYPTED_STORAGE = true;
 
@@ -51,7 +52,7 @@ export default abstract class BaseStore<T> {
         encrypted: ENCRYPTED_STORAGE,
       },
     });
-    console.log('Store.set done');
+    if (config.debug) console.log('Store.set done');
   }
 
   public async setBulk(record: Record<string, T>): Promise<void> {
@@ -78,7 +79,7 @@ export default abstract class BaseStore<T> {
         encrypted: ENCRYPTED_STORAGE,
       },
     });
-    console.log('Store.setBulk done');
+    if (config.debug) console.log('Store.setBulk done');
   }
 
   public async remove(_key: string): Promise<void> {
@@ -100,7 +101,7 @@ export default abstract class BaseStore<T> {
         encrypted: ENCRYPTED_STORAGE,
       },
     });
-    console.log('Store.remove done');
+    if (config.debug) console.log('Store.remove done');
   }
 
   public async clear(): Promise<void> {
@@ -108,6 +109,6 @@ export default abstract class BaseStore<T> {
       method: 'snap_manageState',
       params: { operation: 'clear', encrypted: ENCRYPTED_STORAGE },
     });
-    console.log('Store.clear done');
+    if (config.debug) console.log('Store.clear done');
   }
 }
