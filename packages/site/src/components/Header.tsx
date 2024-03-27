@@ -1,8 +1,6 @@
-import { useContext } from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import { MetamaskActions, MetaMaskContext } from '../hooks';
-import { connectSnap, getThemePreference, getSnap } from '../utils';
+import { getThemePreference } from '../utils';
 import { HeaderButtons } from './Buttons';
 import { ReefLogo } from './ReefLogo';
 import { Toggle } from './Toggle';
@@ -34,22 +32,7 @@ export const Header = ({
   handleToggleClick(): void;
 }) => {
   const theme = useTheme();
-  const [state, dispatch] = useContext(MetaMaskContext);
 
-  const handleConnectClick = async () => {
-    try {
-      await connectSnap();
-      const installedSnap = await getSnap();
-
-      dispatch({
-        type: MetamaskActions.SetInstalled,
-        payload: installedSnap,
-      });
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
-  };
   return (
     <HeaderWrapper>
       <LogoWrapper>
@@ -59,9 +42,8 @@ export const Header = ({
         <Toggle
           onToggle={handleToggleClick}
           defaultChecked={getThemePreference()}
-          themeIcons={true}
         />
-        <HeaderButtons state={state} onConnectClick={handleConnectClick} />
+        <HeaderButtons />
       </RightContainer>
     </HeaderWrapper>
   );

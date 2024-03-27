@@ -1,9 +1,9 @@
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { WsProvider } from '@polkadot/api';
 import { Provider, Signer as ReefVMSigner } from '@reef-chain/evm-provider';
 
-import Signer from './Signer';
+import Signer from '../utils/Signer';
 import {
   ConnectButton,
   InstallFlaskButton,
@@ -22,20 +22,28 @@ import {
   ErrorMessage,
 } from '../components';
 import { defaultSnapOrigin } from '../config';
-import { MetamaskActions, MetaMaskContext } from '../hooks';
 import {
-  connectSnap,
-  getSnap,
+  useMetaMask,
+  useInvokeSnap,
+  useMetaMaskContext,
+  useRequestSnap,
+} from '../hooks';
+import { 
   isLocalSnap,
-  sendToSnap,
   shouldDisplayReconnectButton,
+  flipIt,
+  getFlipperValue,
+  buildMetadata,
+  networkNameToGenesisHash
 } from '../utils';
-import { flipIt, getFlipperValue } from '../utils/flipperContract';
-import { buildMetadata, networkNameToGenesisHash } from '../utils/metadata';
 import { Account, Network } from '../types/types';
 
 const Index = () => {
-  const [state, dispatch] = useContext(MetaMaskContext);
+  const { error } = useMetaMaskContext();
+  const { isFlask, snapsDetected, installedSnap } = useMetaMask();
+  const requestSnap = useRequestSnap();
+  const invokeSnap = useInvokeSnap();
+
   const [newName, setNewName] = useState<string>();
   const [seedGenerate, setSeedGenerate] = useState<string>();
   const [seedImport, setSeedImport] = useState<string>();
@@ -45,15 +53,15 @@ const Index = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
 
   const isMetaMaskReady = isLocalSnap(defaultSnapOrigin)
-    ? state.isFlask
-    : state.snapsDetected;
+    ? isFlask
+    : snapsDetected;
 
   useEffect(() => {
-    if (state.installedSnap) {
+    if (installedSnap) {
       getNetwork();
       getAccounts();
     }
-  }, [state.installedSnap]);
+  }, [installedSnap]);
 
   useEffect(() => {
     if (network) {
@@ -64,27 +72,10 @@ const Index = () => {
     }
   }, [network]);
 
-  // Connection ///////////////////////////////////////////////////
-
-  const connect = async () => {
-    try {
-      await connectSnap();
-      const installedSnap = await getSnap();
-
-      dispatch({
-        type: MetamaskActions.SetInstalled,
-        payload: installedSnap,
-      });
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
-  };
-
   // Network //////////////////////////////////////////////////////
 
   const getNetwork = async (showAlert?: boolean) => {
-    const _network: Network = await sendToSnap('getNetwork');
+    const _network: Network = await invokeSnap({ method: 'getNetwork' });
     setNetwork(_network);
     if (showAlert) {
       alert(`Network: ${_network.name}`);
@@ -93,8 +84,9 @@ const Index = () => {
   };
 
   const switchNetwork = async () => {
-    const _network = await sendToSnap('selectNetwork', {
-      network: network?.name === 'testnet' ? 'mainnet' : 'testnet',
+    const _network = await invokeSnap({ 
+      method: 'selectNetwork', 
+      params: { network: network?.name === 'testnet' ? 'mainnet' : 'testnet' }
     });
     setNetwork(_network);
   };
@@ -102,47 +94,35 @@ const Index = () => {
   // Accounts /////////////////////////////////////////////////////
 
   const createSeed = async () => {
-    try {
-      const res = (await sendToSnap('createSeed')) as {
-        address: string;
-        seed: string;
-      };
-      setSeedGenerate(res.seed);
-      console.log('Mnemonic:', res.seed);
-      alert(`Mnemonic: ${res.seed}`);
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
+    const res = (await invokeSnap({ method: 'createSeed'})) as {
+      address: string;
+      seed: string;
+    };
+    setSeedGenerate(res.seed);
+    console.log('Mnemonic:', res.seed);
+    alert(`Mnemonic: ${res.seed}`);
   };
 
   const createAccount = async (useSeedImport?: boolean) => {
     const seed = useSeedImport ? seedImport : seedGenerate;
-    try {
-      if (!seed) throw new Error('Invalid mnemonic');
-      await sendToSnap('createAccountWithSeed', { seed, name: 'New Account' });
-      getAccounts();
-      alert('Account created');
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
+    if (!seed) alert('ERROR: Invalid mnemonic');
+    await invokeSnap({ 
+      method: 'createAccountWithSeed', 
+      params: { seed, name: 'New Account' }
+    });
+    getAccounts();
+    alert('Account created');
   };
 
   const renameAccount = async () => {
-    try {
-      if (!reefVmSigner) throw new Error('No account selected');
-      if (!newName) throw new Error('New name not provided');
-      await sendToSnap('renameAccount', {
-        addressRename: reefVmSigner!._substrateAddress,
-        newName: newName,
-      });
-      getAccounts();
-      alert('Account renamed');
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
+    if (!reefVmSigner) alert('ERROR: No account selected');
+    if (!newName) alert('ERROR: New name not provided');
+    await invokeSnap({ 
+      method: 'renameAccount', 
+      params: { addressRename: reefVmSigner!._substrateAddress, newName }
+    });
+    getAccounts();
+    alert('Account renamed');
   };
 
   const importAccountFromJson = async () => {
@@ -160,23 +140,26 @@ const Index = () => {
 
     const password = 'mock1pass';
 
-    await sendToSnap('importAccount', {
-      json,
-      password,
+    await invokeSnap({ 
+      method: 'importAccount', 
+      params: { json, password }
     });
     getAccounts();
     alert('Account imported');
   };
 
   const exportAccount = async (): Promise<void> => {
-    if (!reefVmSigner) throw new Error('No account to delete');
+    if (!reefVmSigner) {
+      alert('ERROR: No account to delete');
+      return;
+    }
 
     const address = reefVmSigner._substrateAddress;
     const password = 'password123';
 
-    const json = await sendToSnap('exportAccount', {
-      addressExport: address,
-      passwordExport: password,
+    const json = await invokeSnap({ 
+      method: 'exportAccount', 
+      params: { addressExport: address, passwordExport: password }
     });
 
     console.log('exportAccount:', json);
@@ -184,35 +167,32 @@ const Index = () => {
   };
 
   const deleteAccount = async () => {
-    try {
-      if (!reefVmSigner) throw new Error('No account to delete');
-      const res = await sendToSnap('forgetAccount', {
-        addressForget: reefVmSigner!._substrateAddress,
-      });
-      console.log('forgetAccount:', res);
-      getAccounts();
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
-    }
+    if (!reefVmSigner) alert('ERROR: No account to delete');
+    const res = await invokeSnap({ 
+      method: 'forgetAccount', 
+      params: { addressForget: reefVmSigner!._substrateAddress }
+    });
+    console.log('forgetAccount:', res);
+    getAccounts();
   };
 
   const getAccounts = async () => {
     try {
-      const _accounts = await sendToSnap('listAccounts');
+      const _accounts = await invokeSnap({ method: 'listAccounts' });
       const _selectedAccount = _accounts.find((acc: Account) => acc.isSelected);
       setAccounts(_accounts);
       buildReefSigner(_selectedAccount?.address);
       console.log('accounts:', _accounts);
-    } catch (error) {
-      console.error(error);
-      dispatch({ type: MetamaskActions.SetError, payload: error });
+    } catch (e: any) {
+      console.log(e);
+      alert(`ERROR: ${e?.message || e}`);
     }
   };
 
   const handleSelectAccount = async (event: any) => {
-    await sendToSnap('selectAccount', {
-      addressSelect: event.target.value,
+    await invokeSnap({ 
+      method: 'selectAccount', 
+      params: { addressSelect: event.target.value }
     });
     getAccounts();
   };
@@ -225,6 +205,8 @@ const Index = () => {
       _network = await getNetwork();
       setNetwork(_network);
     }
+
+    if (!_network) throw new Error('Network not found');
 
     const _provider = new Provider({
       provider: new WsProvider(_network.rpcUrl),
@@ -246,10 +228,16 @@ const Index = () => {
       setReefVmSigner(undefined);
       return;
     }
-    const _provider = provider || (await updateProvider(network));
-    const signer = new Signer();
-    const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
-    setReefVmSigner(newReefVmSigner);
+
+    try {
+      const _provider = provider || (await updateProvider(network));
+      const signer = new Signer(invokeSnap);
+      const newReefVmSigner = new ReefVMSigner(_provider, address, signer);
+      setReefVmSigner(newReefVmSigner);
+    } catch (e: any) {
+      console.error('buildReefSigner', e);
+      alert(`ERROR: ${e?.message || e}`);
+    }
   };
 
   const flipValue = async () => {
@@ -259,19 +247,21 @@ const Index = () => {
       const res = await getFlipperValue(reefVmSigner);
       console.log('Flipper value:', res);
       alert(`Flipper value: ${res}`);
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
+      alert(`ERROR: ${e?.message || e}`);
     }
   };
 
   const getFlipValue = async () => {
-    if (!reefVmSigner) throw new Error('Reef signer is required');
     try {
+      if (!reefVmSigner) throw new Error('Reef signer is required');
       const res = await getFlipperValue(reefVmSigner);
       console.log('Flipper value:', res);
       alert(`Flipper value: ${res}`);
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
+      alert(`ERROR: ${e?.message || e}`);
     }
   };
 
@@ -285,23 +275,30 @@ const Index = () => {
       });
       console.log('Messaged signed:', messageSigned);
       alert(`Message signed: ${messageSigned.signature}`);
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
+      alert(`ERROR: ${e?.message || e}`);
     }
   };
 
   // Metadata /////////////////////////////////////////////////////
 
   const getMetadata = async () => {
-    if (!network) throw new Error('Network not found');
+    if (!network) {
+      alert('ERROR: Network not found');
+      return;
+    }
     const genesisHash = networkNameToGenesisHash[network.name];
-    const res = await sendToSnap('getMetadata', { genesisHash });
+    const res = await invokeSnap({ 
+      method: 'getMetadata', 
+      params: { genesisHash }
+    });
     console.log(res);
     alert(`Metadata ${network.name}: ${JSON.stringify(res)}`);
   };
 
   const listMetadata = async () => {
-    const res = await sendToSnap('listMetadata');
+    const res = await invokeSnap({ method: 'listMetadata' });
     console.log(res);
     alert(`Metadata: ${JSON.stringify(res)}`);
   };
@@ -309,7 +306,10 @@ const Index = () => {
   const updateMetadata = async () => {
     const _provider = provider || (await updateProvider(network));
     const metadata = buildMetadata(_provider.api);
-    const res = await sendToSnap('provideMetadata', metadata);
+    const res = await invokeSnap({ 
+      method: 'provideMetadata', 
+      params: { ...metadata }
+    });
     console.log(res);
     alert(`Metadata updated: ${JSON.stringify(res)}`);
   };
@@ -317,12 +317,12 @@ const Index = () => {
   // Test store ///////////////////////////////////////////////////
 
   const getAllStores = async () => {
-    const res = await sendToSnap('getAllStores');
+    const res = await invokeSnap({ method: 'getAllStores' });
     console.log(res);
   };
 
   const clearAllStores = async () => {
-    const res = await sendToSnap('clearAllStores');
+    const res = await invokeSnap({ method: 'clearAllStores' });
     console.log(res);
   };
 
@@ -332,7 +332,7 @@ const Index = () => {
         <Span>Reef Chain snap</Span>
       </Heading>
       <Subtitle>
-        {state.installedSnap && <div>Network: {network?.name || '-'}</div>}
+        {installedSnap && <div>Network: {network?.name || '-'}</div>}
         {network?.name && (
           <Toggle
             onToggle={switchNetwork}
@@ -358,9 +358,9 @@ const Index = () => {
         </Subtitle>
       )}
       <CardContainer>
-        {state.error && (
+        {error && (
           <ErrorMessage>
-            <b>An error happened:</b> {state.error.message}
+            <b>An error happened:</b> {error.message}
           </ErrorMessage>
         )}
         {!isMetaMaskReady && (
@@ -374,20 +374,23 @@ const Index = () => {
             fullWidth
           />
         )}
-        {!state.installedSnap && (
+        {!installedSnap && (
           <Card
             content={{
               title: 'Connect',
               description:
                 'Get started by connecting to and installing the example snap.',
               button: (
-                <ConnectButton onClick={connect} disabled={!isMetaMaskReady} />
+                <ConnectButton
+                  onClick={requestSnap}
+                  disabled={!isMetaMaskReady}
+                />
               ),
             }}
             disabled={!isMetaMaskReady}
           />
         )}
-        {shouldDisplayReconnectButton(state.installedSnap) && (
+        {shouldDisplayReconnectButton(installedSnap) && (
           <Card
             content={{
               title: 'Reconnect',
@@ -395,12 +398,12 @@ const Index = () => {
                 'While connected to a local running snap this button will always be displayed in order to update the snap if a change is made.',
               button: (
                 <ReconnectButton
-                  onClick={connect}
-                  disabled={!state.installedSnap}
+                  onClick={requestSnap}
+                  disabled={!installedSnap}
                 />
               ),
             }}
-            disabled={!state.installedSnap}
+            disabled={!installedSnap}
           />
         )}
         <Card
@@ -408,16 +411,16 @@ const Index = () => {
             title: 'Get network',
             description: 'Get selected network.',
             button: (
-              <Button onClick={() => getNetwork(true)} disabled={!state.installedSnap}>
+              <Button onClick={() => getNetwork(true)} disabled={!installedSnap}>
                 Get network
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -425,16 +428,16 @@ const Index = () => {
             title: 'Create mnemonic',
             description: 'Generate a mnemonic for a new Reef account.',
             button: (
-              <Button onClick={createSeed} disabled={!state.installedSnap}>
+              <Button onClick={createSeed} disabled={!installedSnap}>
                 Create mnemonic
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -442,16 +445,16 @@ const Index = () => {
             title: 'Create account',
             description: 'Create new Reef account from the mnemonic generated.',
             button: (
-              <Button onClick={() => createAccount()} disabled={!state.installedSnap}>
+              <Button onClick={() => createAccount()} disabled={!installedSnap}>
                 Create account
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -462,16 +465,16 @@ const Index = () => {
               <input onChange={(event) => setNewName(event.target.value)} />
             ),
             button: (
-              <Button onClick={renameAccount} disabled={!state.installedSnap}>
+              <Button onClick={renameAccount} disabled={!installedSnap}>
                 Rename account
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -484,17 +487,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => createAccount(true)}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Import account
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -503,17 +506,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => importAccountFromJson()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Import account
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -522,17 +525,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => exportAccount()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Export account
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -542,17 +545,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => flipValue()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Flip it!
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -562,17 +565,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => getFlipValue()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Get flipper value
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -582,17 +585,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => signBytes()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Sign bytes
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -602,17 +605,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => getMetadata()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Get metadata
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -622,17 +625,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => listMetadata()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 List metadata
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -643,17 +646,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => updateMetadata()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Update metadata
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         {/* <Card
@@ -662,17 +665,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => getAllStores()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Get all stores
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         />
         <Card
@@ -681,17 +684,17 @@ const Index = () => {
             button: (
               <Button
                 onClick={() => clearAllStores()}
-                disabled={!state.installedSnap}
+                disabled={!installedSnap}
               >
                 Remove all stores
               </Button>
             ),
           }}
-          disabled={!state.installedSnap}
+          disabled={!installedSnap}
           fullWidth={
             isMetaMaskReady &&
-            Boolean(state.installedSnap) &&
-            !shouldDisplayReconnectButton(state.installedSnap)
+            Boolean(installedSnap) &&
+            !shouldDisplayReconnectButton(installedSnap)
           }
         /> */}
       </CardContainer>

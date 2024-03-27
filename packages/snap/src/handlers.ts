@@ -1,5 +1,4 @@
-import { type Json } from '@metamask/snaps-sdk';
-import { panel, heading, text, divider, copyable } from '@metamask/snaps-ui';
+import { type Json, panel, heading, text, divider, copyable } from '@metamask/snaps-sdk';
 import type { HexString } from '@polkadot/util/types';
 import { TypeRegistry } from '@polkadot/types';
 import { Call } from '@polkadot/types/interfaces';

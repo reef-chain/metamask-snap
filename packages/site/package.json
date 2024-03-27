@@ -2,7 +2,7 @@
   "name": "site",
   "version": "0.1.0",
   "private": true,
-  "license": "MIT-0",
+  "license": "(MIT-0 OR Apache-2.0)",
   "scripts": {
     "allow-scripts": "yarn workspace root allow-scripts",
     "build": "GATSBY_TELEMETRY_DISABLED=1 gatsby build",
@@ -26,7 +26,7 @@
     ]
   },
   "dependencies": {
-    "@metamask/providers": "^14.0.0",
+    "@metamask/providers": "^16.0.0",
     "@reef-chain/evm-provider": "^2.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -58,9 +58,9 @@
     "eslint-plugin-n": "^15.7.0",
     "eslint-plugin-prettier": "^4.2.1",
     "eslint-plugin-promise": "^6.1.1",
-    "gatsby": "^4.25.7",
-    "gatsby-plugin-manifest": "^4.24.0",
-    "gatsby-plugin-styled-components": "^5.24.0",
+    "gatsby": "^5.13.3",
+    "gatsby-plugin-manifest": "^5.13.1",
+    "gatsby-plugin-styled-components": "^6.13.1",
     "gatsby-plugin-svgr": "^3.0.0-beta.0",
     "prettier": "^2.7.1",
     "prettier-plugin-packagejson": "^2.2.18",

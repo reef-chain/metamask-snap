@@ -2,8 +2,11 @@ import {
   type Json,
   type OnRpcRequestHandler,
   OnInstallHandler,
+  panel,
+  heading,
+  text,
+  image 
 } from '@metamask/snaps-sdk';
-import { panel, heading, text, image } from '@metamask/snaps-ui';
 import { SignerPayloadJSON, SignerPayloadRaw } from '@polkadot/types/types';
 import { cryptoWaitReady } from '@polkadot/util-crypto';
 
