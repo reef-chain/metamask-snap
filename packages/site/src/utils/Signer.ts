@@ -20,32 +20,22 @@ export default class Signer implements SignerInterface {
   }
 
   public async signPayload(payload: SignerPayloadJSON): Promise<SignerResult> {
-    const approved = await this.invokeSnap({ 
+    const result = await this.invokeSnap({ 
       method: 'requestSignature',
       params: { ...payload } 
     });
 
-    if (!approved) return Promise.reject(new Error('_canceled'));
-    const result = await this.invokeSnap({ 
-      method: 'approveSignExtrinsic', 
-      params: { ...payload }
-    });
-
+    if (!result) return Promise.reject(new Error('_canceled'));
     return { ...result };
   }
 
   public async signRaw(payload: SignerPayloadRaw): Promise<SignerResult> {
-    const approved = await this.invokeSnap({ 
-      method: 'requestSignature', 
-      params: { ...payload }
-    });
-    if (!approved) return Promise.reject(new Error('_canceled'));
-
     const result = await this.invokeSnap({ 
-      method: 'approveSignBytes', 
-      params: { ...payload }
+      method: 'requestSignature',
+      params: { ...payload } 
     });
 
+    if (!result) return Promise.reject(new Error('_canceled'));
     return { ...result };
   }
 }

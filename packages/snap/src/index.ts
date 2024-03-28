@@ -18,19 +18,17 @@ import { availableNetworks, NetworkName } from './config/networks';
 import { reefLogo } from './icon';
 import {
   accountsList,
-  clearAllStores,
   createAccountWithSeed,
   createSeed,
   editAccount,
   exportAccount,
   forgetAccount,
-  getAllStores,
   jsonRestore,
   provideMetadata,
   selectAccount,
-  signBytes,
-  signExtrinsic,
   signatureRequest,
+  getAllStores,
+  clearAllStores,
 } from './handlers';
 
 export let state = new State();
@@ -152,14 +150,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
         | SignerPayloadRaw;
       const isBytes = !(payload as SignerPayloadJSON).genesisHash;
       return signatureRequest(payload, isBytes, origin);
-
-    case 'approveSignBytes':
-      const payloadRaw = request.params as any as SignerPayloadRaw;
-      return signBytes(payloadRaw);
-
-    case 'approveSignExtrinsic':
-      const payloadExtrinsic = request.params as any as SignerPayloadJSON;
-      return signExtrinsic(payloadExtrinsic);
 
     // Metadata
     case 'getMetadata':

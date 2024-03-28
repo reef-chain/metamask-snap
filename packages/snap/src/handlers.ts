@@ -1,4 +1,4 @@
-import { type Json, panel, heading, text, divider, copyable } from '@metamask/snaps-sdk';
+import { type Json, panel, heading, text, divider, copyable, DialogResult } from '@metamask/snaps-sdk';
 import type { HexString } from '@polkadot/util/types';
 import { TypeRegistry } from '@polkadot/types';
 import { Call } from '@polkadot/types/interfaces';
@@ -154,7 +154,7 @@ export const selectAccount = async (address: string) => {
   return res;
 };
 
-export const signatureRequest = (
+export const signatureRequest = async (
   payload: SignerPayloadRaw | SignerPayloadJSON,
   isBytes: boolean,
   origin: string,
@@ -188,7 +188,7 @@ export const signatureRequest = (
     payloadText.push(...renderMethod(jsonPayload.method, network));
   }
 
-  return snap.request({
+  const approved: DialogResult = await snap.request({
     method: 'snap_dialog',
     params: {
       type: 'confirmation',
@@ -200,9 +200,17 @@ export const signatureRequest = (
       ]),
     },
   });
+
+  if (approved !== true) return false;
+
+  if (isBytes) {
+    return signBytes(payload as SignerPayloadRaw);
+  } else {
+    return signExtrinsic(payload as SignerPayloadJSON);
+  }  
 };
 
-export const signBytes = async (
+const signBytes = async (
   payload: SignerPayloadRaw,
 ): Promise<{ signature: HexString }> => {
   const rawRequest = new RequestBytesSign(payload);
@@ -216,7 +224,7 @@ export const signBytes = async (
   return rawRequest.sign(registry, pair);
 };
 
-export const signExtrinsic = async (
+const signExtrinsic = async (
   payload: SignerPayloadJSON,
 ): Promise<{ signature: HexString }> => {
   const extrinsicRequest = new RequestExtrinsicSign(payload);
