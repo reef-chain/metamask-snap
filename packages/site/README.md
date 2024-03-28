@@ -1,5 +1,7 @@
 # Snap Front-end
 
+Sample application for testing and managing the MetaMask Snap for the Reef Chain.
+
 This project was bootstrapped with [Gatsby](https://www.gatsbyjs.com/).
 
 ## Available Scripts

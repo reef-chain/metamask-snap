@@ -1,4 +1,11 @@
-# Reef Chain MetaMask Snap
+# Reef Chain Wallet Snap
+
+The Reef Chain Wallet Snap allows users to interact with the Reef Chain using MetaMask.
+
+
+
+
+# Development
 
 This project has been created from the [MetaMask template-snap-monorepo](@metamask/template-snap-monorepo) repository.
 

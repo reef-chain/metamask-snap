@@ -1,7 +1,7 @@
 {
   "name": "reef-snap",
   "version": "0.1.0",
-  "description": "MetaMask Snap for Reef chain EVM execution.",
+  "description": "MetaMask Snap for Reef Chain.",
   "repository": {
     "type": "git",
     "url": "https://github.com/reef-chain/metamask-snap.git"
