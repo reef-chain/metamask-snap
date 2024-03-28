@@ -5806,7 +5806,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@reef-chain/reef-snap@^0.1.0, @reef-chain/reef-snap@workspace:packages/snap":
+"@reef-chain/reef-snap@workspace:packages/snap":
   version: 0.0.0-use.local
   resolution: "@reef-chain/reef-snap@workspace:packages/snap"
   dependencies:
@@ -5819,7 +5819,6 @@ __metadata:
     "@polkadot/keyring": ^12.6.2
     "@polkadot/types": ^10.11.2
     "@polkadot/ui-keyring": ^3.6.4
-    "@reef-chain/reef-snap": ^0.1.0
     "@typescript-eslint/eslint-plugin": ^5.42.1
     "@typescript-eslint/parser": ^5.42.1
     buffer: ^6.0.3
@@ -21157,7 +21156,6 @@ __metadata:
   dependencies:
     "@lavamoat/allow-scripts": ^3.0.0
     "@lavamoat/preinstall-always-fail": ^2.0.0
-    "@reef-chain/reef-snap": ^0.1.0
     "@typescript-eslint/eslint-plugin": ^5.42.1
     "@typescript-eslint/parser": ^5.42.1
     buffer: ^6.0.3

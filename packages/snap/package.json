@@ -33,7 +33,6 @@
     "@polkadot/keyring": "^12.6.2",
     "@polkadot/types": "^10.11.2",
     "@polkadot/ui-keyring": "^3.6.4",
-    "@reef-chain/reef-snap": "^0.1.0",
     "buffer": "^6.0.3"
   },
   "devDependencies": {

@@ -53,8 +53,5 @@
       "@lavamoat/preinstall-always-fail": false,
       "sharp": true
     }
-  },
-  "dependencies": {
-    "@reef-chain/reef-snap": "^0.1.0"
   }
 }
