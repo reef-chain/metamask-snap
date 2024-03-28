@@ -7,12 +7,12 @@
     "url": "https://github.com/reef-chain/metamask-snap.git"
   },
   "source": {
-    "shasum": "mqVrVOq2WyxpwOX0kJ5k90b00VecPmegi0x2zO9q9qc=",
+    "shasum": "iTCFGE+uWu9KS1LccwOCkUERwWjU9IbFiSq+kMW8yEg=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
         "iconPath": "images/icon.svg",
-        "packageName": "reef-snap",
+        "packageName": "@reef-chain/reef-snap",
         "registry": "https://registry.npmjs.org/"
       }
     }

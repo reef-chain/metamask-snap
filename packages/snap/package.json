@@ -1,5 +1,5 @@
 {
-  "name": "reef-snap",
+  "name": "@reef-chain/reef-snap",
   "version": "0.1.0",
   "description": "MetaMask Snap for Reef Chain.",
   "repository": {
