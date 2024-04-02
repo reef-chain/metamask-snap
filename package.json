@@ -17,8 +17,10 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "yarn workspaces foreach --parallel --topological --verbose run build:clean",
-    "build:clean": "rm -rf node_modules && rm -f yarn.lock && yarn install && yarn build",
+    "build": "yarn workspaces foreach --parallel --topological --verbose run build",
+    "clean": "rm -rf node_modules && rm -f yarn.lock",
+    "clean:packages": "yarn workspaces foreach --parallel --topological --verbose run clean",
+    "build:clean": "yarn install && yarn build",
     "publish": "npm --prefix ./packages/snap publish",
     "lint": "yarn lint:eslint && yarn lint:misc --check",
     "lint:eslint": "eslint . --cache --ext js,jsx,ts,tsx",
