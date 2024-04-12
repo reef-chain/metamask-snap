@@ -5857,8 +5857,8 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@metamask/auto-changelog": ^3.4.4
     "@metamask/snaps-cli": ^6.1.0
+    "@metamask/snaps-sdk": ^4.0.0
     "@metamask/snaps-jest": ^7.0.0
-    "@metamask/snaps-sdk": ^3.2.0
     "@polkadot/api": ^10.11.2
     "@polkadot/keyring": ^12.6.2
     "@polkadot/types": ^10.11.2
