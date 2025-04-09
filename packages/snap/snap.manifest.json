@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Snap for Reef Chain.",
   "proposedName": "Reef Chain Wallet",
   "repository": {
@@ -7,7 +7,7 @@
     "url": "https://github.com/reef-chain/metamask-snap.git"
   },
   "source": {
-    "shasum": "4UlIpGB4bEiHAyIDfKsv0emG9Vgskpud57cG3TSOJkI=",
+    "shasum": "ZDVOXXi+GbmBGTcbFrUXAFyzjlGHfFzTztAsza0guaw=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -29,5 +29,6 @@
     "endowment:webassembly": {},
     "endowment:lifecycle-hooks": {}
   },
+  "platformVersion": "4.4.2",
   "manifestVersion": "0.1"
 }
