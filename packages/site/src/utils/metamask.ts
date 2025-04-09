@@ -60,10 +60,11 @@ export async function getMetaMaskEIP6963Provider() {
      * @param event - The EIP6963 announceProvider event.
      * @param event.detail - The details of the EIP6963 announceProvider event.
      */
+
     function onAnnounceProvider({ detail }: EIP6963AnnounceProviderEvent) {
       const { info, provider } = detail;
 
-      if (info.rdns.includes('io.metamask')) {
+      if (info.rdns.includes('io.metamask') || info.rdns.includes('io.metamask.flask')) {
         resolve(provider);
       }
     }
