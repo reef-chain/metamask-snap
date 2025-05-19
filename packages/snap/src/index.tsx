@@ -1,18 +1,10 @@
-import {
-  type Json,
-  type OnRpcRequestHandler,
-  OnInstallHandler,
-  panel,
-  heading,
-  text,
-  image 
-} from '@metamask/snaps-sdk';
+import type { Json, OnInstallHandler, OnRpcRequestHandler } from '@metamask/snaps-sdk';
+import { Box, Text ,Heading, Image} from '@metamask/snaps-sdk/jsx';
 import { SignerPayloadJSON, SignerPayloadRaw } from '@polkadot/types/types';
 import { cryptoWaitReady } from '@polkadot/util-crypto';
-
 import { Keyring } from './signing/Keyring';
-import { config } from './config/config';
 import { RequestJsonRestore, MetadataDef } from './types';
+import { config } from './config/config';
 import State from './State';
 import { availableNetworks, NetworkName } from './config/networks';
 import { reefLogo } from './icon';
@@ -54,19 +46,22 @@ const initKeyring = async () => {
 
 export const onInstall: OnInstallHandler = async () => {
   await snap.request({
-    method: 'snap_dialog',
+    method: "snap_dialog",
     params: {
-      type: 'alert',
-      content: panel([
-        image(reefLogo),
-        heading('Welcome to Reef Chain Snap'),
-        text(
-          `To start using it, visit the companion dapp at [${config.dappUrl}](https://${config.dappUrl}).`,
-        ),
-      ]),
+      type: "alert",
+      content: (
+        <Box>
+          <Heading>Welcome to Reef Chain Snap</Heading>
+          <Image src={reefLogo}/>
+          <Text>
+          To start using it, visit the companion dapp at <a href={`https://${config.dappUrl}`}>${config.dappUrl}</a> .
+          </Text>
+        </Box>
+      ),
     },
   });
 };
+
 
 export const onRpcRequest: OnRpcRequestHandler = async ({
   origin,

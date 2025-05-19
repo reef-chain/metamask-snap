@@ -7,7 +7,7 @@
     "url": "https://github.com/reef-chain/metamask-snap.git"
   },
   "source": {
-    "shasum": "ZDVOXXi+GbmBGTcbFrUXAFyzjlGHfFzTztAsza0guaw=",
+    "shasum": "VwBsWfwu5rxZUtGKglPVjKwRdIiGnz+Wmq8RV3+cVsc=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -29,6 +29,6 @@
     "endowment:webassembly": {},
     "endowment:lifecycle-hooks": {}
   },
-  "platformVersion": "4.4.2",
+  "platformVersion": "6.24.0",
   "manifestVersion": "0.1"
 }
