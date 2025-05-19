@@ -179,6 +179,7 @@ const Index = () => {
   const getAccounts = async () => {
     try {
       const _accounts = await invokeSnap({ method: 'listAccounts' });
+      if(_accounts==null)return;
       const _selectedAccount = _accounts.find((acc: Account) => acc.isSelected);
       setAccounts(_accounts);
       buildReefSigner(_selectedAccount?.address);
