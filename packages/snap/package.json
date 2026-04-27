@@ -37,7 +37,7 @@
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@metamask/auto-changelog": "^3.4.4",
-    "@metamask/snaps-cli": "^6.6.0",
+    "@metamask/snaps-cli": "^8.4.1",
     "@metamask/snaps-jest": "^8.9.0",
     "@types/react": "18.2.4",
     "@types/react-dom": "18.2.4",
